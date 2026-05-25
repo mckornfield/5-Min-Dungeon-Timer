@@ -14,7 +14,7 @@
   --stone-soft: #2d3440;
   --ember: #ff8e2b;
   --glow: #f4ba6a;
-  --shadow: 0 10px 0 #090b0d;
+  --shadow: 0 10px 0 rgba(9,11,13,0.4);
   /* Game class gem colors */
   --ruby: #e03535;
   --sapphire: #3570d8;
@@ -34,7 +34,7 @@ body.theme-light {
   --accent: #8f5e1f;
   --ember: #c75b1e;
   --glow: #b77b2f;
-  --shadow: 0 8px 0 #b3a896;
+  --shadow: 0 8px 0 rgba(179,168,150,0.4);
 }
 
 body.theme-dark {
@@ -97,6 +97,28 @@ body::before {
 .fx-layer * {
   pointer-events: none !important;
 }
+
+/* Stage background texture — rendered before smoke so smoke sits on top. */
+body.stage-1 .fx-layer::before,
+body.stage-2 .fx-layer::before,
+body.stage-3 .fx-layer::before,
+body.stage-4 .fx-layer::before,
+body.stage-5 .fx-layer::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-repeat: repeat;
+  background-size: calc(100% / 2) auto;
+  opacity: 0.32;
+  transition: opacity 600ms ease;
+}
+
+body.stage-1 .fx-layer::before { background-image: url('assets/images/stage1_background.png'); }
+body.stage-2 .fx-layer::before { background-image: url('assets/images/stage2_background.png'); }
+body.stage-3 .fx-layer::before { background-image: url('assets/images/stage3_background.png'); }
+body.stage-4 .fx-layer::before { background-image: url('assets/images/stage4_background.png'); }
+body.stage-5 .fx-layer::before { background-image: url('assets/images/stage5_background.png'); }
 
 .smoke {
   position: absolute;
@@ -173,7 +195,14 @@ body.theme-dark .smoke-b { background: #5a3a20; }
   display: grid;
   gap: 0.95rem;
   padding-top: 0.2rem;
+  --stage-color: var(--accent);
 }
+
+.app-main:has(.dot[data-stage="1"].active) { --stage-color: var(--ruby); }
+.app-main:has(.dot[data-stage="2"].active) { --stage-color: var(--sapphire); }
+.app-main:has(.dot[data-stage="3"].active) { --stage-color: var(--emerald); }
+.app-main:has(.dot[data-stage="4"].active) { --stage-color: var(--gold); }
+.app-main:has(.dot[data-stage="5"].active) { --stage-color: var(--amethyst); }
 
 .app-main > section {
   margin: 0;
@@ -546,23 +575,22 @@ body.theme-dark .smoke-b { background: #5a3a20; }
   display: flex;
   justify-content: center;
   flex-wrap: wrap;
-  gap: 0.6rem;
-  padding: 0.35rem 0.1rem;
+  gap: 0.7rem;
+  padding: 0.1rem 0.1rem 0.3rem;
 }
 
 .badge {
-  border: 2px solid color-mix(in oklab, var(--ink) 78%, #000 22%);
-  border-left: 3px solid var(--accent);
-  background: linear-gradient(100deg, color-mix(in oklab, var(--panel) 86%, #000 14%), color-mix(in oklab, var(--stone) 74%, #000 26%));
-  box-shadow: var(--shadow);
-  padding: 0.5rem 0.7rem;
-  font-size: 0.9rem;
+  border: 2px solid color-mix(in oklab, var(--stage-color) 50%, var(--ink) 50%);
+  border-left: 4px solid var(--stage-color);
+  background: color-mix(in oklab, var(--stage-color) 10%, var(--panel) 90%);
+  box-shadow: 0 0 12px color-mix(in oklab, var(--stage-color) 20%, transparent), var(--shadow);
+  padding: 0.55rem 0.9rem;
+  font-size: 1rem;
   font-family: "Cinzel", serif;
-  font-weight: 600;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  transition: border-color 450ms ease, background 450ms ease, box-shadow 450ms ease;
 }
-
-#stageBadge  { border-left-color: var(--ruby); }
-#cardBadge   { border-left-color: var(--amethyst); }
 
 .quick-rules {
   padding: 0.2rem 0;
@@ -604,7 +632,6 @@ body.theme-dark .smoke-b { background: #5a3a20; }
   font-size: 0.95rem;
 }
 
-body.theme-dark .badge,
 body.theme-dark .btn,
 body.theme-dark .settings-panel {
   border-color: rgba(200,160,104,0.45);

@@ -125,6 +125,7 @@ async function init() {
   createDots();
   syncMinuteThresholdTracking(ROUND_SECONDS);
   render(ROUND_SECONDS, true);
+  applyStageClass();
   wireEvents();
   initializeWakeLockDefaults();
   syncAmbientWithTimerState('init');
@@ -361,10 +362,16 @@ function resetStage(playFeedback = false) {
   if (playFeedback && beepToggle.checked) beepSequence(1, 0.065, 560, 0.08);
 }
 
+function applyStageClass() {
+  for (let i = 1; i <= TOTAL_STAGES; i++) document.body.classList.remove(`stage-${i}`);
+  document.body.classList.add(`stage-${stage}`);
+}
+
 function jumpStage(direction) {
   const target = Math.min(TOTAL_STAGES, Math.max(1, stage + direction));
   if (target === stage) return;
   stage = target;
+  applyStageClass();
   appendDebugEvent('stage', `jumped to stage ${stage}`);
   resetStage();
 }
