@@ -1,39 +1,81 @@
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;900&family=Spectral:wght@400;600;700&display=swap');
+
 :root {
-  --bg: #0f0f14;
-  --panel: #1e1c28;
-  --ink: #f4eee0;
-  --muted: #b6af9b;
-  --accent: #52d673;
-  --line: #3f384c;
-  --danger: #f64f5b;
-  --warning: #f2b940;
-  --teal: #3cc7c4;
-  --shadow: 0 10px 0 #0a0a0d;
+  --bg: #101216;
+  --panel: #1b1e24;
+  --ink: #e6ddc8;
+  --muted: #aca187;
+  --accent: #cf9d54;
+  --line: #3d434f;
+  --danger: #c94038;
+  --warning: #d39f38;
+  --teal: #53979a;
+  --stone: #242933;
+  --stone-soft: #2d3440;
+  --ember: #ff8e2b;
+  --glow: #f4ba6a;
+  --shadow: 0 10px 0 #090b0d;
   --btn-small-offset: -8px;
 }
 
 body.theme-light {
-  --bg: #f4efe2;
-  --panel: #fff8eb;
-  --ink: #161214;
-  --muted: #52484f;
-  --line: #b7ab98;
+  --bg: #e6dfd0;
+  --panel: #f3ebda;
+  --ink: #1f1a15;
+  --muted: #625746;
+  --line: #9d907b;
+  --stone: #c8beab;
+  --stone-soft: #d6ccbb;
+  --accent: #8f5e1f;
+  --ember: #c75b1e;
+  --glow: #b77b2f;
   --shadow: 0 8px 0 #b3a896;
+}
+
+body.theme-dark {
+  --bg: #0e1014;
+  --panel: #171b22;
+  --ink: #eadfc9;
+  --muted: #a39677;
+  --line: #3a414f;
+  --stone: #1f242d;
+  --stone-soft: #2a313d;
+  --accent: #cc9450;
+  --ember: #ff7d25;
+  --glow: #ffbf70;
 }
 
 * { box-sizing: border-box; }
 
 body {
   margin: 0;
-  font-family: "Trebuchet MS", "Verdana", sans-serif;
-  background: radial-gradient(circle at top, #241f35, var(--bg));
+  font-family: "Spectral", "Georgia", serif;
+  background:
+    radial-gradient(circle at 12% -8%, color-mix(in oklab, var(--glow) 22%, transparent), transparent 35%),
+    radial-gradient(circle at 88% 108%, color-mix(in oklab, var(--ember) 18%, transparent), transparent 35%),
+    linear-gradient(180deg, color-mix(in oklab, var(--stone-soft) 34%, #000 66%) 0%, var(--bg) 45%, #0b0d11 100%);
   color: var(--ink);
   min-height: 100vh;
   overflow-x: hidden;
 }
 
 body.theme-light {
-  background: radial-gradient(circle at top, #fffdf5, var(--bg));
+  background:
+    radial-gradient(circle at 18% -12%, rgba(226, 189, 122, 0.28), transparent 40%),
+    radial-gradient(circle at 86% 112%, rgba(195, 137, 84, 0.2), transparent 38%),
+    linear-gradient(180deg, #f4ecdc 0%, var(--bg) 55%, #d8cdb6 100%);
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    linear-gradient(90deg, transparent 0 6%, rgba(255, 255, 255, 0.03) 6% 7%, transparent 7% 18%, rgba(255, 255, 255, 0.02) 18% 19%, transparent 19% 31%, rgba(255, 255, 255, 0.025) 31% 32%, transparent 32% 100%),
+    repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.2) 0 2px, transparent 2px 56px);
+  mix-blend-mode: soft-light;
 }
 
 .fx-layer {
@@ -41,6 +83,11 @@ body.theme-light {
   inset: 0;
   pointer-events: none;
   z-index: 0;
+}
+
+.fx-layer,
+.fx-layer * {
+  pointer-events: none !important;
 }
 
 .smoke {
@@ -54,7 +101,7 @@ body.theme-light {
 .smoke-a {
   width: 45vw;
   height: 45vw;
-  background: #6c5b8f;
+  background: #545d73;
   top: -5vh;
   left: -10vw;
 }
@@ -62,7 +109,7 @@ body.theme-light {
 .smoke-b {
   width: 35vw;
   height: 35vw;
-  background: #ac3b61;
+  background: #7b4b3a;
   right: -8vw;
   bottom: 10vh;
   animation-duration: 20s;
@@ -85,7 +132,7 @@ body.theme-light {
 .app-header,
 .app-main {
   position: relative;
-  z-index: 1;
+  z-index: 10;
   max-width: 760px;
   margin: 0 auto;
   padding: 1rem;
@@ -99,23 +146,25 @@ body.theme-light {
 .app-header h1 {
   margin: 0;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
-  font-size: clamp(1.2rem, 4.8vw, 2rem);
+  letter-spacing: 0.08em;
+  font-family: "Cinzel", serif;
+  font-size: clamp(1.3rem, 4.8vw, 2.15rem);
+  text-shadow: 0 2px 0 #000, 0 0 14px color-mix(in oklab, var(--glow) 30%, transparent);
 }
 
 .dragon {
   width: clamp(56px, 16vw, 88px);
   margin-top: 0.45rem;
-  filter: drop-shadow(0 0 12px #eb7f54aa);
+  filter: drop-shadow(0 0 12px color-mix(in oklab, var(--ember) 78%, transparent));
 }
 
 .menu-button {
   position: absolute;
   right: 1rem;
   top: 1rem;
-  z-index: 120;
-  border: 2px solid var(--ink);
-  background: var(--panel);
+  z-index: 220;
+  border: 2px solid color-mix(in oklab, var(--ink) 88%, #000 12%);
+  background: linear-gradient(180deg, color-mix(in oklab, var(--stone-soft) 55%, #000 45%), color-mix(in oklab, var(--stone) 65%, #000 35%));
   width: 44px;
   height: 44px;
   display: grid;
@@ -129,16 +178,18 @@ body.theme-light {
   width: 22px;
   height: 3px;
   background: var(--ink);
+  box-shadow: 0 0 6px color-mix(in oklab, var(--glow) 45%, transparent);
 }
 
 .settings-panel {
   position: absolute;
   right: 1rem;
   top: 3.9rem;
-  z-index: 130;
+  z-index: 230;
   width: min(75vw, 240px);
-  background: var(--panel);
-  border: 2px solid var(--ink);
+  background:
+    linear-gradient(165deg, color-mix(in oklab, var(--panel) 88%, #000 12%), color-mix(in oklab, var(--stone) 78%, #000 22%));
+  border: 2px solid color-mix(in oklab, var(--ink) 78%, #000 22%);
   box-shadow: var(--shadow);
   padding: 0.7rem;
   display: grid;
@@ -158,11 +209,14 @@ body.theme-light {
 
 .settings-panel label,
 .settings-panel a {
-  font-size: 0.9rem;
+  font-size: 0.92rem;
   color: var(--ink);
 }
 
-.settings-panel a { font-weight: 700; }
+.settings-panel a {
+  font-weight: 700;
+  color: color-mix(in oklab, var(--glow) 60%, var(--ink) 40%);
+}
 
 .progress-wrap {
   margin-top: 0.6rem;
@@ -172,8 +226,8 @@ body.theme-light {
 
 .progress-track {
   height: 8px;
-  border: 2px solid var(--ink);
-  background: linear-gradient(90deg, #2c2740, #1b1829);
+  border: 2px solid color-mix(in oklab, var(--ink) 76%, #000 24%);
+  background: linear-gradient(90deg, #272d38, #1a1f29);
   box-shadow: var(--shadow);
 }
 
@@ -190,29 +244,30 @@ body.theme-light {
   width: clamp(14px, 4.2vw, 18px);
   height: clamp(14px, 4.2vw, 18px);
   border-radius: 50%;
-  border: 2px solid var(--ink);
-  background: var(--panel);
+  border: 2px solid color-mix(in oklab, var(--ink) 80%, #000 20%);
+  background: linear-gradient(180deg, color-mix(in oklab, var(--panel) 88%, #000 12%), color-mix(in oklab, var(--stone) 76%, #000 24%));
   transition: transform 220ms ease, background 220ms ease;
 }
 
 .dot.active,
 .dot.done {
-  background: var(--accent);
+  background: radial-gradient(circle at 30% 30%, #ffd28a, var(--accent));
   transform: scale(1.1);
 }
 
 .dot.done {
-  background: #3f8ff0;
+  background: radial-gradient(circle at 30% 30%, #b9d2df, #567f9e);
 }
 
 .timer {
   text-align: center;
   margin: 0.2rem 0 1rem;
+  font-family: "Cinzel", serif;
   font-size: clamp(2.6rem, 16vw, 5.3rem);
   line-height: 1;
   font-weight: 900;
   letter-spacing: 0.04em;
-  text-shadow: 0 0 20px color-mix(in oklab, var(--accent) 45%, transparent);
+  text-shadow: 0 0 20px color-mix(in oklab, var(--glow) 36%, transparent), 0 2px 0 #000;
   transition: color 220ms ease, transform 140ms ease;
 }
 
@@ -237,14 +292,18 @@ body.theme-light {
 }
 
 .btn {
-  border: 3px solid var(--ink);
-  background: var(--panel);
+  border: 3px solid color-mix(in oklab, var(--ink) 78%, #000 22%);
+  background: linear-gradient(180deg, color-mix(in oklab, var(--panel) 84%, #000 16%) 0%, color-mix(in oklab, var(--stone) 76%, #000 24%) 100%);
   color: var(--ink);
-  font-weight: 900;
+  font-family: "Cinzel", serif;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.08em;
   box-shadow: var(--shadow);
   transition: transform 130ms ease, background 160ms ease, color 160ms ease;
+  position: relative;
+  z-index: 20;
+  pointer-events: auto;
 }
 
 .btn:active { transform: translateY(2px); }
@@ -253,8 +312,10 @@ body.theme-light {
 .btn-main {
   min-height: 88px;
   font-size: clamp(1.35rem, 6.8vw, 2.2rem);
-  background: var(--accent);
-  color: #101010;
+  background: linear-gradient(180deg, #e2b56f 0%, var(--accent) 100%);
+  color: #16110a;
+  text-shadow: 0 1px 0 #f4d8aa;
+  box-shadow: 0 0 18px color-mix(in oklab, var(--ember) 34%, transparent), var(--shadow);
 }
 
 .btn-secondary {
@@ -277,18 +338,20 @@ body.theme-light {
 }
 
 .badge {
-  border: 2px solid var(--ink);
-  background: var(--panel);
+  border: 2px solid color-mix(in oklab, var(--ink) 78%, #000 22%);
+  background: linear-gradient(180deg, color-mix(in oklab, var(--panel) 86%, #000 14%), color-mix(in oklab, var(--stone) 74%, #000 26%));
   box-shadow: var(--shadow);
   padding: 0.4rem 0.65rem;
   font-size: 0.9rem;
-  font-weight: 700;
+  font-family: "Cinzel", serif;
+  font-weight: 600;
 }
 
 .quick-rules {
   margin-top: 0.7rem;
-  border: 2px solid var(--ink);
-  background: color-mix(in oklab, var(--panel) 90%, #000 10%);
+  border: 2px solid color-mix(in oklab, var(--ink) 76%, #000 24%);
+  background:
+    linear-gradient(180deg, color-mix(in oklab, #f3dfb9 10%, var(--panel) 90%), color-mix(in oklab, var(--stone) 78%, #000 22%));
   box-shadow: var(--shadow);
   padding: 0.7rem;
 }
@@ -296,13 +359,44 @@ body.theme-light {
 .quick-rules h2 {
   margin: 0 0 0.4rem;
   font-size: 1rem;
+  font-family: "Cinzel", serif;
+  letter-spacing: 0.06em;
+  color: color-mix(in oklab, var(--glow) 58%, var(--ink) 42%);
 }
 
 .quick-rules ul {
   margin: 0;
   padding-left: 1.1rem;
   color: var(--muted);
-  font-size: 0.9rem;
+  font-size: 0.95rem;
+}
+
+body.theme-dark .quick-rules {
+  background:
+    linear-gradient(180deg, color-mix(in oklab, #2f2a1f 18%, var(--panel) 82%), color-mix(in oklab, var(--stone) 80%, #000 20%));
+}
+
+body.theme-light .quick-rules {
+  background:
+    linear-gradient(180deg, #f8efd9, #eadfca);
+}
+
+body.theme-dark .badge,
+body.theme-dark .btn,
+body.theme-dark .settings-panel {
+  border-color: color-mix(in oklab, var(--glow) 28%, var(--ink) 72%);
+}
+
+body.theme-light .badge,
+body.theme-light .btn,
+body.theme-light .settings-panel {
+  border-color: color-mix(in oklab, #7d6646 42%, var(--line) 58%);
+}
+
+body.theme-light .btn-main {
+  background: linear-gradient(180deg, #b1803f 0%, #8f5e1f 100%);
+  color: #f7e8ca;
+  text-shadow: 0 1px 0 #4a2f11;
 }
 
 body.graphics-simple .fx-layer,

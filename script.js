@@ -496,6 +496,28 @@ async function initializeVisualEffects() {
   }
 }
 
+function hardenFxLayerInteractivity() {
+  const effectSelectors = [
+    '.tsparticles-canvas-el',
+    '#particles canvas',
+    '#particles > div',
+    '#fallbackParticles',
+  ];
+
+  effectSelectors.forEach((selector) => {
+    document.querySelectorAll(selector).forEach((node) => {
+      node.style.pointerEvents = 'none';
+      node.style.zIndex = '0';
+    });
+  });
+
+  const layer = document.querySelector('.fx-layer');
+  if (layer) {
+    layer.style.pointerEvents = 'none';
+    layer.style.zIndex = '0';
+  }
+}
+
 async function importModuleWithRedundancy(urls, label) {
   let lastError = null;
   for (const url of urls) {
@@ -570,6 +592,8 @@ async function initSmokeAndEmberFx() {
         fxContainer.pause();
       }
 
+      hardenFxLayerInteractivity();
+
       return true;
     } catch (error) {
       console.warn(`[fx] Smoke/ember effect init attempt ${attempt + 1} failed`, error);
@@ -625,4 +649,5 @@ init().catch((error) => {
   fallbackParticlesActive = true;
   setupParticles();
   animateParticles();
+  hardenFxLayerInteractivity();
 });
