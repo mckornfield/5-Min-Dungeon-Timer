@@ -528,10 +528,18 @@ async function initSmokeAndEmberFx() {
         id: 'particles',
         options: {
           preset: 'fire',
-          fullScreen: { enable: true, zIndex: 0 },
+          fullScreen: { enable: false, zIndex: 0 },
           detectRetina: true,
           background: { opacity: 0 },
           fpsLimit: 60,
+          interactivity: {
+            detectsOn: 'window',
+            events: {
+              onClick: { enable: false, mode: [] },
+              onHover: { enable: false, mode: [] },
+              resize: { enable: true, delay: 0.5 },
+            },
+          },
           particles: {
             color: {
               value: ['#ffb45d', '#ff8248', '#ffd9a0', '#9fa7b5'],
