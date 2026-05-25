@@ -109,6 +109,7 @@ let debugEventEntries = [];
 let ambientTracks = [];
 let ambientDiscoveryAttempted = false;
 let ambientTrackDiscoveryPromise = null;
+let ambientStartRetryTimer = null;
 let pendingBeepTimers = [];
 let beepVolumeLevel = DEFAULT_BEEP_LEVEL;
 let ambientVolumeLevel = DEFAULT_AMBIENT_LEVEL;
@@ -843,7 +844,30 @@ function playRandomAmbientTrack(skipIfPaused = false) {
   player.play().catch(() => {
     // Autoplay can be blocked before first user interaction.
     appendDebugEvent('ambient', 'autoplay blocked until user interaction');
+    scheduleAmbientPlaybackRetry('play-blocked');
   });
+}
+
+function scheduleAmbientPlaybackRetry(reason = 'retry') {
+  if (ambientStartRetryTimer) {
+    clearTimeout(ambientStartRetryTimer);
+    ambientStartRetryTimer = null;
+  }
+
+  ambientStartRetryTimer = setTimeout(() => {
+    ambientStartRetryTimer = null;
+
+    if (!running || !musicToggle || !musicToggle.checked) return;
+    if (!ambiencePlayer) {
+      resumeOrStartAmbience();
+      return;
+    }
+
+    if (ambiencePlayer.paused) {
+      appendDebugEvent('ambient', `${reason}: retrying playback`);
+      resumeOrStartAmbience();
+    }
+  }, 350);
 }
 
 function startAmbience() {
@@ -855,6 +879,11 @@ function startAmbience() {
 
 function pauseAmbienceForTimer() {
   if (!musicToggle || !musicToggle.checked || !ambienceStarted) return;
+
+  if (ambientStartRetryTimer) {
+    clearTimeout(ambientStartRetryTimer);
+    ambientStartRetryTimer = null;
+  }
 
   if (ambiencePlayer && !ambiencePlayer.paused) {
     ambiencePlayer.pause();
@@ -906,6 +935,10 @@ function syncAmbientWithTimerState(reason = 'sync') {
 
 function stopAmbience() {
   if (!ambienceStarted) return;
+  if (ambientStartRetryTimer) {
+    clearTimeout(ambientStartRetryTimer);
+    ambientStartRetryTimer = null;
+  }
   if (ambiencePlayer) {
     ambiencePlayer.pause();
     ambiencePlayer.currentTime = 0;
