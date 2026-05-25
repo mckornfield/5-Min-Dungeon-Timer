@@ -232,6 +232,9 @@ body::before {
   transform: scale(0.8);
   opacity: 0;
   pointer-events: none;
+  max-height: calc(100vh - 5.2rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
   transition: transform 180ms ease, opacity 180ms ease;
 }
 
@@ -247,10 +250,41 @@ body::before {
   color: var(--ink);
 }
 
+.volume-control {
+  display: grid;
+  gap: 0.25rem;
+  border: 1px solid color-mix(in oklab, var(--line) 70%, var(--ink) 30%);
+  background: color-mix(in oklab, var(--stone) 72%, #000 28%);
+  padding: 0.38rem;
+}
+
+.volume-control label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.82rem;
+  letter-spacing: 0.02em;
+}
+
+.volume-control input[type="range"] {
+  width: 100%;
+  accent-color: var(--accent);
+}
+
 .debug-toggle {
   border: 2px solid color-mix(in oklab, var(--ink) 80%, #000 20%);
   background: linear-gradient(180deg, color-mix(in oklab, var(--stone-soft) 50%, #000 50%), color-mix(in oklab, var(--stone) 70%, #000 30%));
   color: var(--ink);
+  font-family: "Cinzel", serif;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 0.35rem 0.5rem;
+}
+
+.settings-reset {
+  border: 2px solid color-mix(in oklab, var(--ink) 80%, #000 20%);
+  background: linear-gradient(180deg, color-mix(in oklab, var(--danger) 52%, #000 48%), color-mix(in oklab, var(--stone) 70%, #000 30%));
+  color: color-mix(in oklab, var(--ink) 90%, #fff 10%);
   font-family: "Cinzel", serif;
   font-weight: 700;
   letter-spacing: 0.04em;
@@ -269,6 +303,9 @@ body::before {
   padding: 0.65rem;
   display: none;
   gap: 0.55rem;
+  max-height: calc(100vh - 17.2rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .debug-panel.open {

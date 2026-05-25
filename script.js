@@ -8,12 +8,25 @@ const FX_INIT_RETRIES = 2;
 const FX_RETRY_BACKOFF_MS = 900;
 const AMBIENT_ERROR_LIMIT = 6;
 const AMBIENT_RETRY_DELAY_MS = 700;
-const AMBIENT_TRACKS = [
-  './assets/ambient/track-1.mp3',
-  './assets/ambient/track-2.mp3',
-  './assets/ambient/track-3.mp3',
-  './assets/ambient/track-4.mp3',
-];
+const AMBIENT_DIRECTORY = './assets/ambient/';
+const DEFAULT_MUSIC_ENABLED = true;
+const DEFAULT_BEEP_ENABLED = true;
+const DEFAULT_WAKE_ENABLED = true;
+const DEFAULT_DARK_MODE_ENABLED = true;
+const DEFAULT_ADVANCED_GRAPHICS_ENABLED = true;
+const MUSIC_TOGGLE_STORAGE_KEY = 'dungeonTimer.musicEnabled';
+const BEEP_TOGGLE_STORAGE_KEY = 'dungeonTimer.beepEnabled';
+const WAKE_TOGGLE_STORAGE_KEY = 'dungeonTimer.wakeEnabled';
+const MODE_TOGGLE_STORAGE_KEY = 'dungeonTimer.darkModeEnabled';
+const GRAPHICS_TOGGLE_STORAGE_KEY = 'dungeonTimer.advancedGraphicsEnabled';
+const BEEP_VOLUME_STORAGE_KEY = 'dungeonTimer.beepVolume';
+const AMBIENT_VOLUME_STORAGE_KEY = 'dungeonTimer.ambientVolume';
+const DEFAULT_BEEP_LEVEL = 1;
+const DEFAULT_AMBIENT_LEVEL = 0.25;
+const DEFAULT_BEEP_DURATION = 0.085;
+const DEFAULT_BEEP_SPACING = 0.12;
+const BEEP_RELEASE_TAIL = 0.02;
+const PROCEDURAL_AMBIENT_BASE_GAIN = 0.014;
 const PARTICLE_ENGINE_URLS = [
   'https://cdn.jsdelivr.net/npm/@tsparticles/engine@3/+esm',
   'https://unpkg.com/@tsparticles/engine@3/+esm',
@@ -34,9 +47,14 @@ const progressDots = document.getElementById('progressDots');
 const menuButton = document.getElementById('menuButton');
 const settingsPanel = document.getElementById('settingsPanel');
 const debugToggleButton = document.getElementById('debugToggleButton');
+const resetSettingsButton = document.getElementById('resetSettingsButton');
 const debugPanel = document.getElementById('debugPanel');
 const musicToggle = document.getElementById('musicToggle');
 const beepToggle = document.getElementById('beepToggle');
+const ambientVolumeSlider = document.getElementById('ambientVolumeSlider');
+const ambientVolumeValue = document.getElementById('ambientVolumeValue');
+const beepVolumeSlider = document.getElementById('beepVolumeSlider');
+const beepVolumeValue = document.getElementById('beepVolumeValue');
 const wakeToggle = document.getElementById('wakeToggle');
 const modeToggle = document.getElementById('modeToggle');
 const graphicsToggle = document.getElementById('graphicsToggle');
@@ -79,6 +97,7 @@ let compressor;
 let audioUnlockPrimed = false;
 let ambiencePlayer = null;
 let ambienceStarted = false;
+let ambiencePausedByTimer = false;
 let lastTrackIndex = -1;
 let wakeRetryTimer = null;
 let fxContainer = null;
@@ -87,19 +106,27 @@ let fallbackFrameId = null;
 let ambientErrorCount = 0;
 let proceduralAmbienceNodes = [];
 let debugEventEntries = [];
+let ambientTracks = [];
+let ambientDiscoveryAttempted = false;
+let ambientTrackDiscoveryPromise = null;
+let pendingBeepTimers = [];
+let beepVolumeLevel = DEFAULT_BEEP_LEVEL;
+let ambientVolumeLevel = DEFAULT_AMBIENT_LEVEL;
 
 const particleCanvas = document.getElementById('fallbackParticles');
 const pctx = particleCanvas ? particleCanvas.getContext('2d') : null;
 let particles = [];
 
 async function init() {
+  await loadAmbientTracks();
+  initializeVolumeControls();
+  initializeToggleControls();
   createDots();
   syncMinuteThresholdTracking(ROUND_SECONDS);
   render(ROUND_SECONDS, true);
   wireEvents();
   initializeWakeLockDefaults();
-  setTheme(true);
-  setGraphics(true);
+  syncAmbientWithTimerState('init');
   await initializeVisualEffects();
 }
 
@@ -159,6 +186,12 @@ function wireEvents() {
     });
   }
 
+  if (resetSettingsButton) {
+    resetSettingsButton.addEventListener('click', () => {
+      resetAllSettingsToDefaults();
+    });
+  }
+
   if (debugSetTimeButton) {
     debugSetTimeButton.addEventListener('click', () => {
       const minutes = clampNumber(Number(debugMinutes?.value ?? 0), 0, 5);
@@ -186,38 +219,63 @@ function wireEvents() {
     });
   }
 
-  if (debugBeepButton) debugBeepButton.addEventListener('click', () => beep(0.09, 840, 0.14, true, 'debug-single'));
-  if (debugMinute4Button) debugMinute4Button.addEventListener('click', () => beepSequence(4, 0.085, 380, 0.11, true, 'debug-4beeps'));
-  if (debugMinute3Button) debugMinute3Button.addEventListener('click', () => beepSequence(3, 0.085, 420, 0.11, true, 'debug-3beeps'));
-  if (debugMinute2Button) debugMinute2Button.addEventListener('click', () => beepSequence(2, 0.085, 470, 0.11, true, 'debug-2beeps'));
-  if (debugMinute1Button) debugMinute1Button.addEventListener('click', () => beepSequence(1, 0.085, 540, 0.11, true, 'debug-1beep'));
+  if (debugBeepButton) debugBeepButton.addEventListener('click', () => beep(0.12, 840, 0.14, true, 'debug-single'));
+  if (debugMinute4Button) debugMinute4Button.addEventListener('click', () => beepSequence(4, 0.12, 380, 0.11, true, 'debug-4beeps'));
+  if (debugMinute3Button) debugMinute3Button.addEventListener('click', () => beepSequence(3, 0.12, 420, 0.11, true, 'debug-3beeps'));
+  if (debugMinute2Button) debugMinute2Button.addEventListener('click', () => beepSequence(2, 0.12, 470, 0.11, true, 'debug-2beeps'));
+  if (debugMinute1Button) debugMinute1Button.addEventListener('click', () => beepSequence(1, 0.12, 540, 0.11, true, 'debug-1beep'));
   if (debugValidateBeepsButton) debugValidateBeepsButton.addEventListener('click', validateMinuteBeepSchedule);
   if (debugClearLogButton) debugClearLogButton.addEventListener('click', clearDebugEventLog);
 
   if (musicToggle) {
     musicToggle.addEventListener('change', () => {
-      if (musicToggle.checked) startAmbience();
-      else stopAmbience();
+      writeStoredToggle(MUSIC_TOGGLE_STORAGE_KEY, musicToggle.checked);
+      syncAmbientWithTimerState('music-toggle-change');
     });
   }
 
   if (beepToggle) {
     beepToggle.addEventListener('change', () => {
+      writeStoredToggle(BEEP_TOGGLE_STORAGE_KEY, beepToggle.checked);
       ensureAudio();
       unlockAudioContext();
       if (beepToggle.checked) beep(0.08, 680, 0.12);
     });
   }
 
+  if (ambientVolumeSlider) {
+    ambientVolumeSlider.addEventListener('input', () => {
+      updateAmbientVolumeFromUi();
+    });
+  }
+
+  if (beepVolumeSlider) {
+    beepVolumeSlider.addEventListener('input', () => {
+      updateBeepVolumeFromUi();
+    });
+  }
+
   if (wakeToggle) {
     wakeToggle.addEventListener('change', async () => {
+      writeStoredToggle(WAKE_TOGGLE_STORAGE_KEY, wakeToggle.checked);
       if (wakeToggle.checked) await requestWakeLock();
       else releaseWakeLock();
     });
   }
 
-  if (modeToggle) modeToggle.addEventListener('change', () => setTheme(modeToggle.checked));
-  if (graphicsToggle) graphicsToggle.addEventListener('change', () => setGraphics(graphicsToggle.checked));
+  if (modeToggle) {
+    modeToggle.addEventListener('change', () => {
+      writeStoredToggle(MODE_TOGGLE_STORAGE_KEY, modeToggle.checked);
+      setTheme(modeToggle.checked);
+    });
+  }
+
+  if (graphicsToggle) {
+    graphicsToggle.addEventListener('change', () => {
+      writeStoredToggle(GRAPHICS_TOGGLE_STORAGE_KEY, graphicsToggle.checked);
+      setGraphics(graphicsToggle.checked);
+    });
+  }
 
   document.addEventListener('visibilitychange', async () => {
     if (document.visibilityState === 'visible') {
@@ -259,10 +317,10 @@ function toggleTimer() {
 function startTimer() {
   ensureAudio();
   unlockAudioContext();
-  if (beepToggle && beepToggle.checked) beep(0.07, 720, 0.11);
-  if (musicToggle.checked) startAmbience();
-  maybeRequestWakeLock();
+  if (beepToggle && beepToggle.checked) beep(0.09, 720, 0.11);
   running = true;
+  syncAmbientWithTimerState('timer-started');
+  maybeRequestWakeLock();
   startTimestamp = performance.now();
   previousRemaining = Math.max(0, ROUND_SECONDS - elapsedBeforePause);
   playPauseButton.textContent = 'Pause';
@@ -274,9 +332,11 @@ function startTimer() {
 function pauseTimer() {
   running = false;
   if (frameId) cancelAnimationFrame(frameId);
+  clearPendingBeeps();
   if (startTimestamp !== null) {
     elapsedBeforePause += (performance.now() - startTimestamp) / 1000;
   }
+  syncAmbientWithTimerState('timer-paused');
   playPauseButton.textContent = 'Start';
   playPauseButton.setAttribute('aria-label', 'Start timer');
   appendDebugEvent('timer', 'paused');
@@ -285,6 +345,8 @@ function pauseTimer() {
 function resetStage(playFeedback = false) {
   running = false;
   if (frameId) cancelAnimationFrame(frameId);
+  syncAmbientWithTimerState('timer-reset');
+  clearPendingBeeps();
   elapsedBeforePause = 0;
   startTimestamp = null;
   syncMinuteThresholdTracking(ROUND_SECONDS);
@@ -295,7 +357,7 @@ function resetStage(playFeedback = false) {
   playPauseButton.setAttribute('aria-label', 'Start timer');
   appendDebugEvent('timer', `stage ${stage} reset`);
   render(ROUND_SECONDS, true);
-  if (playFeedback && beepToggle.checked) beepSequence(1, 0.045, 560, 0.08);
+  if (playFeedback && beepToggle.checked) beepSequence(1, 0.065, 560, 0.08);
 }
 
 function jumpStage(direction) {
@@ -318,9 +380,10 @@ function tick() {
   if (remaining <= 0) {
     running = false;
     elapsedBeforePause = ROUND_SECONDS;
+    syncAmbientWithTimerState('timer-ended');
     playPauseButton.textContent = 'Start';
     playPauseButton.setAttribute('aria-label', 'Start timer');
-    beepSequence(6, 0.05, 240, 0.14);
+    beepSequence(6, 0.085, 240, 0.14);
     return;
   }
 
@@ -373,7 +436,8 @@ function handleBeeps(remaining) {
   MINUTE_BEEP_THRESHOLDS.forEach((threshold) => {
     if (!minuteThresholdsTriggered.has(threshold) && wholeSeconds <= threshold && previousWholeSeconds > threshold) {
       minuteThresholdsTriggered.add(threshold);
-      beepSequence(threshold / 60, 0.08, 370, 0.09, false, `minute-${threshold}`);
+      beepSequence(threshold / 60, 0.12, 370, 0.1, false, `minute-${threshold}`);
+      speakMinuteLeft(threshold / 60, threshold / 60 * 0.12 + 0.12);
     }
   });
 
@@ -382,7 +446,7 @@ function handleBeeps(remaining) {
   if (lastUrgencyBeep === null || (performance.now() - lastUrgencyBeep) / 1000 >= interval) {
     lastUrgencyBeep = performance.now();
     const freq = remaining < 5 ? 780 : remaining < 15 ? 640 : 520;
-    beep(0.025, freq, 0.07, false, 'urgency');
+    beep(0.055, freq, 0.085, false, 'urgency');
   }
 }
 
@@ -442,32 +506,279 @@ function unlockAudioContext() {
   audioUnlockPrimed = true;
 }
 
-function beep(duration = 0.07, freq = 440, volume = 0.07, force = false, reason = 'beep') {
+function beep(duration = DEFAULT_BEEP_DURATION, freq = 440, volume = 0.07, force = false, reason = 'beep') {
   if (!force && (!beepToggle || !beepToggle.checked)) return;
   ensureAudio();
   unlockAudioContext();
   const osc = audioCtx.createOscillator();
   const gain = audioCtx.createGain();
-  osc.type = 'square';
-  osc.frequency.value = freq;
+  osc.type = 'triangle';
   gain.gain.value = 0.0001;
   osc.connect(gain);
   gain.connect(beepBus);
   const now = audioCtx.currentTime;
+  const attack = Math.min(0.012, duration * 0.28);
+  const end = now + duration;
+  const outputVolume = Math.max(0.0001, volume * beepVolumeLevel);
+  osc.frequency.setValueAtTime(freq * 1.04, now);
+  osc.frequency.exponentialRampToValueAtTime(Math.max(120, freq * 0.9), end);
   gain.gain.setValueAtTime(0.0001, now);
-  gain.gain.linearRampToValueAtTime(volume, now + 0.006);
-  gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+  gain.gain.linearRampToValueAtTime(outputVolume, now + attack);
+  gain.gain.exponentialRampToValueAtTime(0.0001, end + BEEP_RELEASE_TAIL);
   osc.start(now);
-  osc.stop(now + duration);
+  osc.stop(end + BEEP_RELEASE_TAIL);
+  osc.onended = () => {
+    osc.disconnect();
+    gain.disconnect();
+  };
   appendDebugEvent(reason, `${Math.round(freq)}Hz / ${duration.toFixed(3)}s / vol ${volume.toFixed(2)}`);
 }
 
-function beepSequence(count, spacing = 0.09, freq = 360, volume = 0.07, force = false, reason = 'sequence') {
+function beepSequence(count, spacing = DEFAULT_BEEP_SPACING, freq = 360, volume = 0.07, force = false, reason = 'sequence') {
   ensureAudio();
   unlockAudioContext();
   for (let i = 0; i < count; i += 1) {
     const delay = i * spacing * 1000;
-    setTimeout(() => beep(0.055, freq + i * 10, volume, force, `${reason} #${i + 1}/${count}`), delay);
+    const timer = setTimeout(() => {
+      beep(DEFAULT_BEEP_DURATION, freq + i * 14, volume, force, `${reason} #${i + 1}/${count}`);
+      pendingBeepTimers = pendingBeepTimers.filter((id) => id !== timer);
+    }, delay);
+    pendingBeepTimers.push(timer);
+  }
+}
+
+function clearPendingBeeps() {
+  pendingBeepTimers.forEach((timer) => clearTimeout(timer));
+  pendingBeepTimers = [];
+}
+
+function initializeVolumeControls() {
+  const savedBeepVolume = readStoredVolume(BEEP_VOLUME_STORAGE_KEY, DEFAULT_BEEP_LEVEL);
+  const savedAmbientVolume = readStoredVolume(AMBIENT_VOLUME_STORAGE_KEY, DEFAULT_AMBIENT_LEVEL);
+
+  if (beepVolumeSlider) beepVolumeSlider.value = String(Math.round(savedBeepVolume * 100));
+  if (ambientVolumeSlider) ambientVolumeSlider.value = String(Math.round(savedAmbientVolume * 100));
+  updateBeepVolumeFromUi();
+  updateAmbientVolumeFromUi();
+}
+
+function initializeToggleControls() {
+  if (musicToggle) {
+    musicToggle.checked = readStoredToggle(MUSIC_TOGGLE_STORAGE_KEY, DEFAULT_MUSIC_ENABLED);
+  }
+  if (beepToggle) {
+    beepToggle.checked = readStoredToggle(BEEP_TOGGLE_STORAGE_KEY, DEFAULT_BEEP_ENABLED);
+  }
+  if (wakeToggle) {
+    wakeToggle.checked = readStoredToggle(WAKE_TOGGLE_STORAGE_KEY, DEFAULT_WAKE_ENABLED);
+  }
+  if (modeToggle) {
+    modeToggle.checked = readStoredToggle(MODE_TOGGLE_STORAGE_KEY, DEFAULT_DARK_MODE_ENABLED);
+    setTheme(modeToggle.checked);
+  }
+  if (graphicsToggle) {
+    graphicsToggle.checked = readStoredToggle(GRAPHICS_TOGGLE_STORAGE_KEY, DEFAULT_ADVANCED_GRAPHICS_ENABLED);
+    setGraphics(graphicsToggle.checked);
+  }
+}
+
+function clearStoredSettings() {
+  const keys = [
+    MUSIC_TOGGLE_STORAGE_KEY,
+    BEEP_TOGGLE_STORAGE_KEY,
+    WAKE_TOGGLE_STORAGE_KEY,
+    MODE_TOGGLE_STORAGE_KEY,
+    GRAPHICS_TOGGLE_STORAGE_KEY,
+    BEEP_VOLUME_STORAGE_KEY,
+    AMBIENT_VOLUME_STORAGE_KEY,
+  ];
+
+  try {
+    keys.forEach((key) => window.localStorage.removeItem(key));
+  } catch {
+    // Storage can be unavailable in privacy-restricted contexts.
+  }
+}
+
+function resetAllSettingsToDefaults() {
+  clearStoredSettings();
+
+  if (musicToggle) {
+    musicToggle.checked = DEFAULT_MUSIC_ENABLED;
+    writeStoredToggle(MUSIC_TOGGLE_STORAGE_KEY, musicToggle.checked);
+  }
+  if (beepToggle) {
+    beepToggle.checked = DEFAULT_BEEP_ENABLED;
+    writeStoredToggle(BEEP_TOGGLE_STORAGE_KEY, beepToggle.checked);
+  }
+  if (wakeToggle) {
+    wakeToggle.checked = DEFAULT_WAKE_ENABLED;
+    writeStoredToggle(WAKE_TOGGLE_STORAGE_KEY, wakeToggle.checked);
+  }
+  if (modeToggle) {
+    modeToggle.checked = DEFAULT_DARK_MODE_ENABLED;
+    writeStoredToggle(MODE_TOGGLE_STORAGE_KEY, modeToggle.checked);
+    setTheme(modeToggle.checked);
+  }
+  if (graphicsToggle) {
+    graphicsToggle.checked = DEFAULT_ADVANCED_GRAPHICS_ENABLED;
+    writeStoredToggle(GRAPHICS_TOGGLE_STORAGE_KEY, graphicsToggle.checked);
+    setGraphics(graphicsToggle.checked);
+  }
+
+  if (beepVolumeSlider) beepVolumeSlider.value = String(Math.round(DEFAULT_BEEP_LEVEL * 100));
+  if (ambientVolumeSlider) ambientVolumeSlider.value = String(Math.round(DEFAULT_AMBIENT_LEVEL * 100));
+  updateBeepVolumeFromUi();
+  updateAmbientVolumeFromUi();
+
+  if (wakeToggle?.checked) maybeRequestWakeLock();
+  else releaseWakeLock();
+
+  syncAmbientWithTimerState('settings-reset');
+  appendDebugEvent('settings', 'reset to defaults');
+}
+
+function readStoredToggle(storageKey, fallback) {
+  try {
+    const raw = window.localStorage.getItem(storageKey);
+    if (raw === null) return fallback;
+    return raw === 'true';
+  } catch {
+    return fallback;
+  }
+}
+
+function writeStoredToggle(storageKey, enabled) {
+  try {
+    window.localStorage.setItem(storageKey, String(Boolean(enabled)));
+  } catch {
+    // Storage can be unavailable in privacy-restricted contexts.
+  }
+}
+
+function readStoredVolume(storageKey, fallback) {
+  try {
+    const raw = window.localStorage.getItem(storageKey);
+    if (raw === null) return fallback;
+    const parsed = Number(raw);
+    if (!Number.isFinite(parsed)) return fallback;
+    return clampNumber(parsed, 0, 1);
+  } catch {
+    return fallback;
+  }
+}
+
+function writeStoredVolume(storageKey, value) {
+  try {
+    window.localStorage.setItem(storageKey, String(value));
+  } catch {
+    // Storage can be unavailable in privacy-restricted contexts.
+  }
+}
+
+function sliderToNormalizedLevel(value) {
+  return clampNumber(Number(value), 0, 100) / 100;
+}
+
+function updateBeepVolumeFromUi() {
+  beepVolumeLevel = beepVolumeSlider ? sliderToNormalizedLevel(beepVolumeSlider.value) : DEFAULT_BEEP_LEVEL;
+  writeStoredVolume(BEEP_VOLUME_STORAGE_KEY, beepVolumeLevel);
+  if (beepVolumeValue) {
+    beepVolumeValue.textContent = `${Math.round(beepVolumeLevel * 100)}%`;
+  }
+}
+
+function updateAmbientVolumeFromUi() {
+  ambientVolumeLevel = ambientVolumeSlider ? sliderToNormalizedLevel(ambientVolumeSlider.value) : DEFAULT_AMBIENT_LEVEL;
+  writeStoredVolume(AMBIENT_VOLUME_STORAGE_KEY, ambientVolumeLevel);
+  if (ambientVolumeValue) {
+    ambientVolumeValue.textContent = `${Math.round(ambientVolumeLevel * 100)}%`;
+  }
+  applyAmbientVolume();
+}
+
+function applyAmbientVolume() {
+  if (ambiencePlayer) {
+    ambiencePlayer.volume = ambientVolumeLevel;
+  }
+  if (proceduralAmbienceNodes.length) {
+    const [ambienceMaster] = proceduralAmbienceNodes;
+    if (audioCtx && ambienceMaster?.gain) {
+      ambienceMaster.gain.cancelScheduledValues(audioCtx.currentTime);
+      ambienceMaster.gain.linearRampToValueAtTime(PROCEDURAL_AMBIENT_BASE_GAIN * ambientVolumeLevel, audioCtx.currentTime + 0.04);
+    }
+  }
+}
+
+function speakMinuteLeft(minutes, delaySeconds = 0) {
+  if (!('speechSynthesis' in window)) return;
+  if (!beepToggle || !beepToggle.checked) return;
+
+  const voiceTimer = setTimeout(() => {
+    const utterance = new SpeechSynthesisUtterance(`${minutes}min left`);
+    utterance.rate = 1.02;
+    utterance.pitch = 0.98;
+    utterance.volume = 0.85;
+    window.speechSynthesis.cancel();
+    window.speechSynthesis.speak(utterance);
+    pendingBeepTimers = pendingBeepTimers.filter((id) => id !== voiceTimer);
+    appendDebugEvent('voice', `${minutes}min left`);
+  }, Math.max(0, delaySeconds) * 1000);
+
+  pendingBeepTimers.push(voiceTimer);
+}
+
+async function loadAmbientTracks() {
+  if (ambientDiscoveryAttempted) return ambientTracks;
+  if (ambientTrackDiscoveryPromise) return ambientTrackDiscoveryPromise;
+
+  ambientTrackDiscoveryPromise = discoverAmbientTracks()
+    .then((tracks) => {
+      ambientTracks = tracks;
+      ambientDiscoveryAttempted = true;
+      appendDebugEvent('ambient', `discovered ${ambientTracks.length} mp3 track(s)`);
+      return ambientTracks;
+    })
+    .catch(() => {
+      ambientTracks = [];
+      ambientDiscoveryAttempted = true;
+      appendDebugEvent('ambient', 'failed to discover mp3 tracks');
+      return ambientTracks;
+    })
+    .finally(() => {
+      ambientTrackDiscoveryPromise = null;
+    });
+
+  return ambientTrackDiscoveryPromise;
+}
+
+async function discoverAmbientTracks() {
+  try {
+    const response = await fetch(AMBIENT_DIRECTORY, { cache: 'no-store' });
+    if (!response.ok) return [];
+
+    const listing = await response.text();
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(listing, 'text/html');
+    const links = [...doc.querySelectorAll('a[href]')];
+    const tracks = links
+      .map((link) => link.getAttribute('href') || '')
+      .filter((href) => /\.mp3($|\?)/i.test(href))
+      .map((href) => {
+        try {
+          return new URL(href, AMBIENT_DIRECTORY).pathname
+            .replace(/\/\/+/g, '/')
+            .replace(/^\/$/, AMBIENT_DIRECTORY);
+        } catch {
+          return `${AMBIENT_DIRECTORY}${href.replace(/^\.\//, '')}`;
+        }
+      })
+      .map((path) => (path.startsWith('/') ? `.${path}` : path))
+      .filter((value, idx, arr) => arr.indexOf(value) === idx);
+
+    return tracks;
+  } catch {
+    return [];
   }
 }
 
@@ -476,11 +787,13 @@ function buildAmbientPlayer() {
   ambiencePlayer = new Audio();
   ambiencePlayer.preload = 'auto';
   ambiencePlayer.loop = false;
-  ambiencePlayer.volume = 0.24;
+  ambiencePlayer.volume = ambientVolumeLevel;
 
   ambiencePlayer.addEventListener('ended', () => {
     ambientErrorCount = 0;
-    playRandomAmbientTrack();
+    if (running && musicToggle && musicToggle.checked) {
+      playRandomAmbientTrack();
+    }
   });
 
   ambiencePlayer.addEventListener('loadeddata', () => {
@@ -489,8 +802,10 @@ function buildAmbientPlayer() {
 
   ambiencePlayer.addEventListener('error', () => {
     ambientErrorCount += 1;
+    appendDebugEvent('ambient', `track error ${ambientErrorCount}/${AMBIENT_ERROR_LIMIT}`);
     if (ambientErrorCount >= AMBIENT_ERROR_LIMIT) {
-      startProceduralAmbienceFallback();
+      stopAmbience();
+      appendDebugEvent('ambient', 'stopped after repeated track errors');
       return;
     }
     setTimeout(() => {
@@ -502,32 +817,32 @@ function buildAmbientPlayer() {
 }
 
 function getRandomAmbientTrack() {
-  if (!AMBIENT_TRACKS.length) return null;
-  if (AMBIENT_TRACKS.length === 1) {
+  if (!ambientTracks.length) return null;
+  if (ambientTracks.length === 1) {
     lastTrackIndex = 0;
-    return AMBIENT_TRACKS[0];
+    return ambientTracks[0];
   }
 
   let nextIndex = lastTrackIndex;
   while (nextIndex === lastTrackIndex) {
-    nextIndex = Math.floor(Math.random() * AMBIENT_TRACKS.length);
+    nextIndex = Math.floor(Math.random() * ambientTracks.length);
   }
   lastTrackIndex = nextIndex;
-  return AMBIENT_TRACKS[nextIndex];
+  return ambientTracks[nextIndex];
 }
 
 function playRandomAmbientTrack(skipIfPaused = false) {
   if (!musicToggle.checked && skipIfPaused) return;
-  stopProceduralAmbienceFallback();
   const player = buildAmbientPlayer();
   const track = getRandomAmbientTrack();
-  if (!track) return;
+  if (!track) {
+    appendDebugEvent('ambient', 'no .mp3 tracks discovered in ambient directory');
+    return;
+  }
   player.src = track;
   player.play().catch(() => {
     // Autoplay can be blocked before first user interaction.
-    if (ambienceStarted) {
-      startProceduralAmbienceFallback();
-    }
+    appendDebugEvent('ambient', 'autoplay blocked until user interaction');
   });
 }
 
@@ -538,6 +853,57 @@ function startAmbience() {
   ambienceStarted = true;
 }
 
+function pauseAmbienceForTimer() {
+  if (!musicToggle || !musicToggle.checked || !ambienceStarted) return;
+
+  if (ambiencePlayer && !ambiencePlayer.paused) {
+    ambiencePlayer.pause();
+    ambiencePausedByTimer = true;
+  }
+
+  if (proceduralAmbienceNodes.length) {
+    stopProceduralAmbienceFallback();
+    ambiencePausedByTimer = true;
+  }
+}
+
+function resumeOrStartAmbience() {
+  if (!musicToggle || !musicToggle.checked) return;
+
+  if (!ambienceStarted) {
+    startAmbience();
+    ambiencePausedByTimer = false;
+    return;
+  }
+
+  if (ambiencePlayer && ambiencePlayer.src && ambiencePlayer.paused) {
+    ambiencePlayer.play().catch(() => {
+      appendDebugEvent('ambient', 'resume blocked until user interaction');
+    });
+  } else if (!ambiencePlayer || !ambiencePlayer.src) {
+    playRandomAmbientTrack();
+  }
+
+  ambiencePausedByTimer = false;
+}
+
+function syncAmbientWithTimerState(reason = 'sync') {
+  if (!musicToggle || !musicToggle.checked) {
+    stopAmbience();
+    appendDebugEvent('ambient', `${reason}: stopped (toggle off)`);
+    return;
+  }
+
+  if (!running) {
+    pauseAmbienceForTimer();
+    appendDebugEvent('ambient', `${reason}: paused (timer not running)`);
+    return;
+  }
+
+  resumeOrStartAmbience();
+  appendDebugEvent('ambient', `${reason}: playing`);
+}
+
 function stopAmbience() {
   if (!ambienceStarted) return;
   if (ambiencePlayer) {
@@ -545,6 +911,7 @@ function stopAmbience() {
     ambiencePlayer.currentTime = 0;
   }
   stopProceduralAmbienceFallback();
+  ambiencePausedByTimer = false;
   ambienceStarted = false;
 }
 
@@ -553,7 +920,7 @@ function startProceduralAmbienceFallback() {
   ensureAudio();
 
   const ambienceMaster = audioCtx.createGain();
-  ambienceMaster.gain.value = 0.014;
+  ambienceMaster.gain.value = PROCEDURAL_AMBIENT_BASE_GAIN * ambientVolumeLevel;
 
   const low = audioCtx.createOscillator();
   low.type = 'triangle';
@@ -595,8 +962,8 @@ function stopProceduralAmbienceFallback() {
 
 function initializeWakeLockDefaults() {
   if (!wakeToggle) return;
-  wakeToggle.checked = true;
-  maybeRequestWakeLock();
+  if (wakeToggle.checked) maybeRequestWakeLock();
+  else releaseWakeLock();
 
   if (wakeRetryTimer) clearInterval(wakeRetryTimer);
   wakeRetryTimer = setInterval(() => {
@@ -613,6 +980,7 @@ async function requestWakeLock() {
   try {
     if (!('wakeLock' in navigator)) {
       wakeToggle.checked = false;
+      writeStoredToggle(WAKE_TOGGLE_STORAGE_KEY, false);
       wakeToggle.disabled = true;
       return;
     }
@@ -841,6 +1209,8 @@ function applyRemainingTime(rawRemaining) {
   const nextRemaining = clampNumber(rawRemaining, 0, ROUND_SECONDS);
   running = false;
   if (frameId) cancelAnimationFrame(frameId);
+  clearPendingBeeps();
+  syncAmbientWithTimerState('time-set');
   startTimestamp = null;
   elapsedBeforePause = ROUND_SECONDS - nextRemaining;
   previousRemaining = nextRemaining;
