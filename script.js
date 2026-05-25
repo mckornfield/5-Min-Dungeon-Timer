@@ -6,6 +6,8 @@ const MINUTE_BEEP_THRESHOLDS = [240, 180, 120, 60];
 const WAKE_RETRY_MS = 15000;
 const FX_INIT_RETRIES = 2;
 const FX_RETRY_BACKOFF_MS = 900;
+const AMBIENT_ERROR_LIMIT = 6;
+const AMBIENT_RETRY_DELAY_MS = 700;
 const AMBIENT_TRACKS = [
   './assets/ambient/track-1.mp3',
   './assets/ambient/track-2.mp3',
@@ -60,9 +62,11 @@ let wakeRetryTimer = null;
 let fxContainer = null;
 let fallbackParticlesActive = false;
 let fallbackFrameId = null;
+let ambientErrorCount = 0;
+let proceduralAmbienceNodes = [];
 
 const particleCanvas = document.getElementById('fallbackParticles');
-const pctx = particleCanvas.getContext('2d');
+const pctx = particleCanvas ? particleCanvas.getContext('2d') : null;
 let particles = [];
 
 async function init() {
@@ -76,6 +80,7 @@ async function init() {
 }
 
 function createDots() {
+  if (!progressDots) return;
   progressDots.innerHTML = '';
   for (let i = 1; i <= TOTAL_STAGES; i += 1) {
     const dot = document.createElement('span');
@@ -86,33 +91,59 @@ function createDots() {
 }
 
 function wireEvents() {
-  playPauseButton.addEventListener('click', toggleTimer);
-  resetButton.addEventListener('click', () => resetStage(true));
-  nextButton.addEventListener('click', () => jumpStage(1));
-  backButton.addEventListener('click', () => jumpStage(-1));
+  if (playPauseButton) playPauseButton.addEventListener('click', toggleTimer);
+  if (resetButton) resetButton.addEventListener('click', () => resetStage(true));
+  if (nextButton) nextButton.addEventListener('click', () => jumpStage(1));
+  if (backButton) backButton.addEventListener('click', () => jumpStage(-1));
 
-  menuButton.addEventListener('click', () => {
-    const open = settingsPanel.classList.toggle('open');
-    menuButton.setAttribute('aria-expanded', String(open));
-  });
+  if (menuButton && settingsPanel) {
+    menuButton.addEventListener('click', (event) => {
+      event.stopPropagation();
+      const open = settingsPanel.classList.toggle('open');
+      menuButton.setAttribute('aria-expanded', String(open));
+    });
 
-  musicToggle.addEventListener('change', () => {
-    if (musicToggle.checked) startAmbience();
-    else stopAmbience();
-  });
+    settingsPanel.addEventListener('click', (event) => {
+      event.stopPropagation();
+    });
 
-  beepToggle.addEventListener('change', () => {
-    ensureAudio();
-    unlockAudioContext();
-  });
+    document.addEventListener('click', () => {
+      settingsPanel.classList.remove('open');
+      menuButton.setAttribute('aria-expanded', 'false');
+    });
 
-  wakeToggle.addEventListener('change', async () => {
-    if (wakeToggle.checked) await requestWakeLock();
-    else releaseWakeLock();
-  });
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') {
+        settingsPanel.classList.remove('open');
+        menuButton.setAttribute('aria-expanded', 'false');
+      }
+    });
+  }
 
-  modeToggle.addEventListener('change', () => setTheme(modeToggle.checked));
-  graphicsToggle.addEventListener('change', () => setGraphics(graphicsToggle.checked));
+  if (musicToggle) {
+    musicToggle.addEventListener('change', () => {
+      if (musicToggle.checked) startAmbience();
+      else stopAmbience();
+    });
+  }
+
+  if (beepToggle) {
+    beepToggle.addEventListener('change', () => {
+      ensureAudio();
+      unlockAudioContext();
+      if (beepToggle.checked) beep(0.08, 680, 0.12);
+    });
+  }
+
+  if (wakeToggle) {
+    wakeToggle.addEventListener('change', async () => {
+      if (wakeToggle.checked) await requestWakeLock();
+      else releaseWakeLock();
+    });
+  }
+
+  if (modeToggle) modeToggle.addEventListener('change', () => setTheme(modeToggle.checked));
+  if (graphicsToggle) graphicsToggle.addEventListener('change', () => setGraphics(graphicsToggle.checked));
 
   document.addEventListener('visibilitychange', async () => {
     if (document.visibilityState === 'visible') {
@@ -154,6 +185,7 @@ function toggleTimer() {
 function startTimer() {
   ensureAudio();
   unlockAudioContext();
+  if (beepToggle && beepToggle.checked) beep(0.07, 720, 0.11);
   if (musicToggle.checked) startAmbience();
   maybeRequestWakeLock();
   running = true;
@@ -218,6 +250,7 @@ function tick() {
 }
 
 function render(remainingSeconds, hardPulse = false) {
+  if (!timerText || !stageBadge || !cardBadge || !progressDots) return;
   const minutes = Math.floor(remainingSeconds / 60);
   const seconds = Math.floor(remainingSeconds % 60);
   const tenths = Math.floor((remainingSeconds % 1) * 10);
@@ -255,7 +288,7 @@ function getColor(remaining) {
 }
 
 function handleBeeps(remaining) {
-  if (!beepToggle.checked) return;
+  if (!beepToggle || !beepToggle.checked) return;
   const wholeSeconds = Math.floor(remaining);
   const previousWholeSeconds = Math.floor(previousRemaining);
 
@@ -332,7 +365,7 @@ function unlockAudioContext() {
 }
 
 function beep(duration = 0.07, freq = 440, volume = 0.07) {
-  if (!beepToggle.checked) return;
+  if (!beepToggle || !beepToggle.checked) return;
   ensureAudio();
   unlockAudioContext();
   const osc = audioCtx.createOscillator();
@@ -367,11 +400,23 @@ function buildAmbientPlayer() {
   ambiencePlayer.volume = 0.24;
 
   ambiencePlayer.addEventListener('ended', () => {
+    ambientErrorCount = 0;
     playRandomAmbientTrack();
   });
 
+  ambiencePlayer.addEventListener('loadeddata', () => {
+    ambientErrorCount = 0;
+  });
+
   ambiencePlayer.addEventListener('error', () => {
-    playRandomAmbientTrack(true);
+    ambientErrorCount += 1;
+    if (ambientErrorCount >= AMBIENT_ERROR_LIMIT) {
+      startProceduralAmbienceFallback();
+      return;
+    }
+    setTimeout(() => {
+      playRandomAmbientTrack(true);
+    }, AMBIENT_RETRY_DELAY_MS);
   });
 
   return ambiencePlayer;
@@ -394,17 +439,22 @@ function getRandomAmbientTrack() {
 
 function playRandomAmbientTrack(skipIfPaused = false) {
   if (!musicToggle.checked && skipIfPaused) return;
+  stopProceduralAmbienceFallback();
   const player = buildAmbientPlayer();
   const track = getRandomAmbientTrack();
   if (!track) return;
   player.src = track;
   player.play().catch(() => {
     // Autoplay can be blocked before first user interaction.
+    if (ambienceStarted) {
+      startProceduralAmbienceFallback();
+    }
   });
 }
 
 function startAmbience() {
   if (ambienceStarted) return;
+  ambientErrorCount = 0;
   playRandomAmbientTrack();
   ambienceStarted = true;
 }
@@ -415,10 +465,57 @@ function stopAmbience() {
     ambiencePlayer.pause();
     ambiencePlayer.currentTime = 0;
   }
+  stopProceduralAmbienceFallback();
   ambienceStarted = false;
 }
 
+function startProceduralAmbienceFallback() {
+  if (proceduralAmbienceNodes.length) return;
+  ensureAudio();
+
+  const ambienceMaster = audioCtx.createGain();
+  ambienceMaster.gain.value = 0.014;
+
+  const low = audioCtx.createOscillator();
+  low.type = 'triangle';
+  low.frequency.value = 52;
+
+  const mid = audioCtx.createOscillator();
+  mid.type = 'sawtooth';
+  mid.frequency.value = 104;
+
+  const mod = audioCtx.createOscillator();
+  mod.frequency.value = 0.08;
+  const modGain = audioCtx.createGain();
+  modGain.gain.value = 7;
+
+  mod.connect(modGain);
+  modGain.connect(low.frequency);
+  low.connect(ambienceMaster);
+  mid.connect(ambienceMaster);
+  ambienceMaster.connect(masterGain);
+
+  const now = audioCtx.currentTime;
+  low.start(now);
+  mid.start(now);
+  mod.start(now);
+
+  proceduralAmbienceNodes = [ambienceMaster, low, mid, mod, modGain];
+}
+
+function stopProceduralAmbienceFallback() {
+  if (!proceduralAmbienceNodes.length) return;
+  const [ambienceMaster, low, mid, mod] = proceduralAmbienceNodes;
+  const stopAt = audioCtx.currentTime + 0.1;
+  ambienceMaster.gain.exponentialRampToValueAtTime(0.0001, stopAt);
+  low.stop(stopAt + 0.02);
+  mid.stop(stopAt + 0.02);
+  mod.stop(stopAt + 0.02);
+  proceduralAmbienceNodes = [];
+}
+
 function initializeWakeLockDefaults() {
+  if (!wakeToggle) return;
   wakeToggle.checked = true;
   maybeRequestWakeLock();
 
@@ -462,13 +559,13 @@ function releaseWakeLock() {
 function setTheme(isDark) {
   document.body.classList.toggle('theme-dark', isDark);
   document.body.classList.toggle('theme-light', !isDark);
-  modeToggle.checked = isDark;
+  if (modeToggle) modeToggle.checked = isDark;
 }
 
 function setGraphics(advanced) {
   document.body.classList.toggle('graphics-advanced', advanced);
   document.body.classList.toggle('graphics-simple', !advanced);
-  graphicsToggle.checked = advanced;
+  if (graphicsToggle) graphicsToggle.checked = advanced;
 
   if (fxContainer) {
     if (advanced) fxContainer.play();
@@ -610,6 +707,7 @@ async function initSmokeAndEmberFx() {
 }
 
 function setupParticles() {
+  if (!particleCanvas || !pctx) return;
   const pixelRatio = window.devicePixelRatio || 1;
   particleCanvas.width = window.innerWidth * pixelRatio;
   particleCanvas.height = window.innerHeight * pixelRatio;
@@ -626,6 +724,7 @@ function setupParticles() {
 }
 
 function animateParticles() {
+  if (!pctx) return;
   pctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
   if (document.body.classList.contains('graphics-advanced')) {
     pctx.fillStyle = 'rgba(244, 205, 143, 0.42)';
