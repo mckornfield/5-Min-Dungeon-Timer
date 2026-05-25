@@ -43,6 +43,11 @@ const graphicsToggle = document.getElementById('graphicsToggle');
 const debugMinutes = document.getElementById('debugMinutes');
 const debugSeconds = document.getElementById('debugSeconds');
 const debugTenths = document.getElementById('debugTenths');
+const debugPreset401 = document.getElementById('debugPreset401');
+const debugPreset301 = document.getElementById('debugPreset301');
+const debugPreset201 = document.getElementById('debugPreset201');
+const debugPreset101 = document.getElementById('debugPreset101');
+const debugPreset015 = document.getElementById('debugPreset015');
 const debugSetTimeButton = document.getElementById('debugSetTimeButton');
 const debugMinus30Button = document.getElementById('debugMinus30Button');
 const debugPlus30Button = document.getElementById('debugPlus30Button');
@@ -53,6 +58,8 @@ const debugMinute2Button = document.getElementById('debugMinute2Button');
 const debugMinute1Button = document.getElementById('debugMinute1Button');
 const debugValidateBeepsButton = document.getElementById('debugValidateBeepsButton');
 const debugBeepValidation = document.getElementById('debugBeepValidation');
+const debugClearLogButton = document.getElementById('debugClearLogButton');
+const debugEventLog = document.getElementById('debugEventLog');
 
 let stage = 1;
 let running = false;
@@ -79,6 +86,7 @@ let fallbackParticlesActive = false;
 let fallbackFrameId = null;
 let ambientErrorCount = 0;
 let proceduralAmbienceNodes = [];
+let debugEventEntries = [];
 
 const particleCanvas = document.getElementById('fallbackParticles');
 const pctx = particleCanvas ? particleCanvas.getContext('2d') : null;
@@ -86,6 +94,7 @@ let particles = [];
 
 async function init() {
   createDots();
+  syncMinuteThresholdTracking(ROUND_SECONDS);
   render(ROUND_SECONDS, true);
   wireEvents();
   initializeWakeLockDefaults();
@@ -116,6 +125,7 @@ function wireEvents() {
       event.stopPropagation();
       const open = settingsPanel.classList.toggle('open');
       menuButton.setAttribute('aria-expanded', String(open));
+      if (!open && debugPanel) debugPanel.classList.remove('open');
     });
 
     settingsPanel.addEventListener('click', (event) => {
@@ -125,15 +135,64 @@ function wireEvents() {
     document.addEventListener('click', () => {
       settingsPanel.classList.remove('open');
       menuButton.setAttribute('aria-expanded', 'false');
+      if (debugPanel) debugPanel.classList.remove('open');
     });
 
     document.addEventListener('keydown', (event) => {
       if (event.key === 'Escape') {
         settingsPanel.classList.remove('open');
         menuButton.setAttribute('aria-expanded', 'false');
+        if (debugPanel) debugPanel.classList.remove('open');
       }
     });
   }
+
+  if (debugToggleButton && debugPanel) {
+    debugToggleButton.addEventListener('click', (event) => {
+      event.stopPropagation();
+      const open = debugPanel.classList.toggle('open');
+      if (open && settingsPanel) settingsPanel.classList.add('open');
+    });
+
+    debugPanel.addEventListener('click', (event) => {
+      event.stopPropagation();
+    });
+  }
+
+  if (debugSetTimeButton) {
+    debugSetTimeButton.addEventListener('click', () => {
+      const minutes = clampNumber(Number(debugMinutes?.value ?? 0), 0, 5);
+      const seconds = clampNumber(Number(debugSeconds?.value ?? 0), 0, 59);
+      const tenths = clampNumber(Number(debugTenths?.value ?? 0), 0, 9);
+      applyRemainingTime(minutes * 60 + seconds + tenths / 10);
+    });
+  }
+
+  if (debugPreset401) debugPreset401.addEventListener('click', () => applyRemainingTime(241));
+  if (debugPreset301) debugPreset301.addEventListener('click', () => applyRemainingTime(181));
+  if (debugPreset201) debugPreset201.addEventListener('click', () => applyRemainingTime(121));
+  if (debugPreset101) debugPreset101.addEventListener('click', () => applyRemainingTime(61));
+  if (debugPreset015) debugPreset015.addEventListener('click', () => applyRemainingTime(15));
+
+  if (debugMinus30Button) {
+    debugMinus30Button.addEventListener('click', () => {
+      applyRemainingTime(getCurrentRemaining() - 30);
+    });
+  }
+
+  if (debugPlus30Button) {
+    debugPlus30Button.addEventListener('click', () => {
+      applyRemainingTime(getCurrentRemaining() + 30);
+    });
+  }
+
+  if (debugBeepButton) debugBeepButton.addEventListener('click', () => beep(0.09, 840, 0.14, true, 'debug-single'));
+  if (debugMinute4Button) debugMinute4Button.addEventListener('click', () => beepSequence(4, 0.085, 380, 0.11, true, 'debug-4beeps'));
+  if (debugMinute3Button) debugMinute3Button.addEventListener('click', () => beepSequence(3, 0.085, 420, 0.11, true, 'debug-3beeps'));
+  if (debugMinute2Button) debugMinute2Button.addEventListener('click', () => beepSequence(2, 0.085, 470, 0.11, true, 'debug-2beeps'));
+  if (debugMinute1Button) debugMinute1Button.addEventListener('click', () => beepSequence(1, 0.085, 540, 0.11, true, 'debug-1beep'));
+  if (debugValidateBeepsButton) debugValidateBeepsButton.addEventListener('click', validateMinuteBeepSchedule);
+  if (debugClearLogButton) debugClearLogButton.addEventListener('click', clearDebugEventLog);
 
   if (musicToggle) {
     musicToggle.addEventListener('change', () => {
@@ -208,6 +267,7 @@ function startTimer() {
   previousRemaining = Math.max(0, ROUND_SECONDS - elapsedBeforePause);
   playPauseButton.textContent = 'Pause';
   playPauseButton.setAttribute('aria-label', 'Pause timer');
+  appendDebugEvent('timer', 'started');
   tick();
 }
 
@@ -219,6 +279,7 @@ function pauseTimer() {
   }
   playPauseButton.textContent = 'Start';
   playPauseButton.setAttribute('aria-label', 'Start timer');
+  appendDebugEvent('timer', 'paused');
 }
 
 function resetStage(playFeedback = false) {
@@ -226,12 +287,13 @@ function resetStage(playFeedback = false) {
   if (frameId) cancelAnimationFrame(frameId);
   elapsedBeforePause = 0;
   startTimestamp = null;
-  minuteCue = null;
+  syncMinuteThresholdTracking(ROUND_SECONDS);
   lastUrgencyBeep = null;
   flashState = false;
   previousRemaining = ROUND_SECONDS;
   playPauseButton.textContent = 'Start';
   playPauseButton.setAttribute('aria-label', 'Start timer');
+  appendDebugEvent('timer', `stage ${stage} reset`);
   render(ROUND_SECONDS, true);
   if (playFeedback && beepToggle.checked) beepSequence(1, 0.045, 560, 0.08);
 }
@@ -240,6 +302,7 @@ function jumpStage(direction) {
   const target = Math.min(TOTAL_STAGES, Math.max(1, stage + direction));
   if (target === stage) return;
   stage = target;
+  appendDebugEvent('stage', `jumped to stage ${stage}`);
   resetStage();
 }
 
@@ -308,9 +371,9 @@ function handleBeeps(remaining) {
   const previousWholeSeconds = Math.floor(previousRemaining);
 
   MINUTE_BEEP_THRESHOLDS.forEach((threshold) => {
-    if (wholeSeconds <= threshold && previousWholeSeconds > threshold && minuteCue !== threshold) {
-      minuteCue = threshold;
-      beepSequence(threshold / 60, 0.08, 370, 0.09);
+    if (!minuteThresholdsTriggered.has(threshold) && wholeSeconds <= threshold && previousWholeSeconds > threshold) {
+      minuteThresholdsTriggered.add(threshold);
+      beepSequence(threshold / 60, 0.08, 370, 0.09, false, `minute-${threshold}`);
     }
   });
 
@@ -319,7 +382,7 @@ function handleBeeps(remaining) {
   if (lastUrgencyBeep === null || (performance.now() - lastUrgencyBeep) / 1000 >= interval) {
     lastUrgencyBeep = performance.now();
     const freq = remaining < 5 ? 780 : remaining < 15 ? 640 : 520;
-    beep(0.025, freq, 0.07);
+    beep(0.025, freq, 0.07, false, 'urgency');
   }
 }
 
@@ -379,8 +442,8 @@ function unlockAudioContext() {
   audioUnlockPrimed = true;
 }
 
-function beep(duration = 0.07, freq = 440, volume = 0.07) {
-  if (!beepToggle || !beepToggle.checked) return;
+function beep(duration = 0.07, freq = 440, volume = 0.07, force = false, reason = 'beep') {
+  if (!force && (!beepToggle || !beepToggle.checked)) return;
   ensureAudio();
   unlockAudioContext();
   const osc = audioCtx.createOscillator();
@@ -396,14 +459,15 @@ function beep(duration = 0.07, freq = 440, volume = 0.07) {
   gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
   osc.start(now);
   osc.stop(now + duration);
+  appendDebugEvent(reason, `${Math.round(freq)}Hz / ${duration.toFixed(3)}s / vol ${volume.toFixed(2)}`);
 }
 
-function beepSequence(count, spacing = 0.09, freq = 360, volume = 0.07) {
+function beepSequence(count, spacing = 0.09, freq = 360, volume = 0.07, force = false, reason = 'sequence') {
   ensureAudio();
   unlockAudioContext();
   for (let i = 0; i < count; i += 1) {
     const delay = i * spacing * 1000;
-    setTimeout(() => beep(0.055, freq + i * 10, volume), delay);
+    setTimeout(() => beep(0.055, freq + i * 10, volume, force, `${reason} #${i + 1}/${count}`), delay);
   }
 }
 
@@ -736,6 +800,94 @@ function setupParticles() {
     size: Math.random() * 1.8 + 0.6,
     velocity: Math.random() * 0.35 + 0.08,
   }));
+}
+
+function clampNumber(value, min, max) {
+  if (!Number.isFinite(value)) return min;
+  return Math.min(max, Math.max(min, value));
+}
+
+function appendDebugEvent(type, detail) {
+  if (!debugEventLog) return;
+  const stamp = new Date().toLocaleTimeString();
+  debugEventEntries.unshift(`${stamp} | ${type} | ${detail}`);
+  if (debugEventEntries.length > 80) debugEventEntries = debugEventEntries.slice(0, 80);
+
+  debugEventLog.innerHTML = debugEventEntries
+    .map((entry) => `<div class="debug-log-entry">${entry}</div>`)
+    .join('');
+}
+
+function clearDebugEventLog() {
+  debugEventEntries = [];
+  if (debugEventLog) debugEventLog.textContent = 'No beep events yet.';
+}
+
+function getCurrentRemaining() {
+  if (!running || startTimestamp === null) {
+    return Math.max(0, ROUND_SECONDS - elapsedBeforePause);
+  }
+  const elapsed = elapsedBeforePause + (performance.now() - startTimestamp) / 1000;
+  return Math.max(0, ROUND_SECONDS - elapsed);
+}
+
+function syncMinuteThresholdTracking(remaining) {
+  minuteThresholdsTriggered = new Set(
+    MINUTE_BEEP_THRESHOLDS.filter((threshold) => remaining <= threshold),
+  );
+}
+
+function applyRemainingTime(rawRemaining) {
+  const nextRemaining = clampNumber(rawRemaining, 0, ROUND_SECONDS);
+  running = false;
+  if (frameId) cancelAnimationFrame(frameId);
+  startTimestamp = null;
+  elapsedBeforePause = ROUND_SECONDS - nextRemaining;
+  previousRemaining = nextRemaining;
+  lastUrgencyBeep = null;
+  syncMinuteThresholdTracking(nextRemaining);
+  if (debugMinutes) debugMinutes.value = String(Math.floor(nextRemaining / 60));
+  if (debugSeconds) debugSeconds.value = String(Math.floor(nextRemaining % 60));
+  if (debugTenths) debugTenths.value = String(Math.floor((nextRemaining % 1) * 10));
+  appendDebugEvent('timer', `time set to ${Math.floor(nextRemaining / 60)}:${String(Math.floor(nextRemaining % 60)).padStart(2, '0')}:${Math.floor((nextRemaining % 1) * 10)}`);
+  render(nextRemaining, true);
+  if (playPauseButton) {
+    playPauseButton.textContent = 'Start';
+    playPauseButton.setAttribute('aria-label', 'Start timer');
+  }
+}
+
+function validateMinuteBeepSchedule() {
+  const triggered = new Set();
+  const counts = { 240: 0, 180: 0, 120: 0, 60: 0 };
+  let previous = ROUND_SECONDS;
+
+  for (let remaining = ROUND_SECONDS - 0.1; remaining >= 0; remaining -= 0.1) {
+    const wholeSeconds = Math.floor(remaining);
+    const previousWholeSeconds = Math.floor(previous);
+
+    MINUTE_BEEP_THRESHOLDS.forEach((threshold) => {
+      if (!triggered.has(threshold) && wholeSeconds <= threshold && previousWholeSeconds > threshold) {
+        triggered.add(threshold);
+        counts[threshold] += threshold / 60;
+      }
+    });
+
+    previous = remaining;
+  }
+
+  const expected = { 240: 4, 180: 3, 120: 2, 60: 1 };
+  const valid = MINUTE_BEEP_THRESHOLDS.every((threshold) => counts[threshold] === expected[threshold]);
+
+  if (debugBeepValidation) {
+    if (valid) {
+      debugBeepValidation.textContent = 'PASS: 4:00=4 beeps, 3:00=3 beeps, 2:00=2 beeps, 1:00=1 beep.';
+      appendDebugEvent('validation', 'PASS minute beep thresholds');
+    } else {
+      debugBeepValidation.textContent = `FAIL: counts 4:00=${counts[240]}, 3:00=${counts[180]}, 2:00=${counts[120]}, 1:00=${counts[60]}`;
+      appendDebugEvent('validation', `FAIL 4:00=${counts[240]}, 3:00=${counts[180]}, 2:00=${counts[120]}, 1:00=${counts[60]}`);
+    }
+  }
 }
 
 function animateParticles() {

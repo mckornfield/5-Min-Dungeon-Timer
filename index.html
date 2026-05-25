@@ -43,6 +43,13 @@
             <input id="debugSeconds" type="number" min="0" max="59" value="0" />
             <input id="debugTenths" type="number" min="0" max="9" value="0" />
           </div>
+          <div class="debug-row debug-row-presets">
+            <button id="debugPreset401" type="button">4:01</button>
+            <button id="debugPreset301" type="button">3:01</button>
+            <button id="debugPreset201" type="button">2:01</button>
+            <button id="debugPreset101" type="button">1:01</button>
+            <button id="debugPreset015" type="button">0:15</button>
+          </div>
           <div class="debug-row">
             <button id="debugSetTimeButton" type="button">Apply Time</button>
             <button id="debugMinus30Button" type="button">-30s</button>
@@ -67,6 +74,14 @@
             <button id="debugValidateBeepsButton" type="button">Validate Minute Beeps</button>
           </div>
           <p id="debugBeepValidation" class="debug-status" aria-live="polite">Not validated yet.</p>
+        </div>
+
+        <div class="debug-group">
+          <label>Beep Timeline</label>
+          <div class="debug-row">
+            <button id="debugClearLogButton" type="button">Clear Log</button>
+          </div>
+          <div id="debugEventLog" class="debug-log" aria-live="polite">No beep events yet.</div>
         </div>
       </aside>
     </header>
