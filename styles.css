@@ -146,6 +146,7 @@ body::before {
 .app-header {
   text-align: center;
   padding-top: 1.2rem;
+  z-index: 6000;
 }
 
 .app-header h1 {
@@ -164,10 +165,10 @@ body::before {
 }
 
 .menu-button {
-  position: absolute;
+  position: fixed;
   right: 1rem;
   top: 1rem;
-  z-index: 220;
+  z-index: 12000;
   border: 2px solid color-mix(in oklab, var(--ink) 88%, #000 12%);
   background: linear-gradient(180deg, color-mix(in oklab, var(--stone-soft) 55%, #000 45%), color-mix(in oklab, var(--stone) 65%, #000 35%));
   width: 44px;
@@ -187,10 +188,10 @@ body::before {
 }
 
 .settings-panel {
-  position: absolute;
+  position: fixed;
   right: 1rem;
-  top: 3.9rem;
-  z-index: 230;
+  top: 4.1rem;
+  z-index: 12010;
   width: min(75vw, 240px);
   background:
     linear-gradient(165deg, color-mix(in oklab, var(--panel) 88%, #000 12%), color-mix(in oklab, var(--stone) 78%, #000 22%));
@@ -216,6 +217,94 @@ body::before {
 .settings-panel a {
   font-size: 0.92rem;
   color: var(--ink);
+}
+
+.debug-toggle {
+  border: 2px solid color-mix(in oklab, var(--ink) 80%, #000 20%);
+  background: linear-gradient(180deg, color-mix(in oklab, var(--stone-soft) 50%, #000 50%), color-mix(in oklab, var(--stone) 70%, #000 30%));
+  color: var(--ink);
+  font-family: "Cinzel", serif;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 0.35rem 0.5rem;
+}
+
+.debug-panel {
+  position: fixed;
+  right: 1rem;
+  top: calc(4.1rem + min(75vw, 240px) * 0.02 + 11.1rem);
+  width: min(88vw, 360px);
+  z-index: 12020;
+  border: 2px solid color-mix(in oklab, var(--ink) 78%, #000 22%);
+  background: linear-gradient(160deg, color-mix(in oklab, var(--panel) 86%, #000 14%), color-mix(in oklab, var(--stone) 75%, #000 25%));
+  box-shadow: var(--shadow);
+  padding: 0.65rem;
+  display: none;
+  gap: 0.55rem;
+}
+
+.debug-panel.open {
+  display: grid;
+}
+
+.debug-panel h3 {
+  margin: 0;
+  font-family: "Cinzel", serif;
+  letter-spacing: 0.05em;
+  color: color-mix(in oklab, var(--glow) 58%, var(--ink) 42%);
+}
+
+.debug-group {
+  border: 1px solid color-mix(in oklab, var(--line) 70%, var(--ink) 30%);
+  background: color-mix(in oklab, var(--stone) 72%, #000 28%);
+  padding: 0.45rem;
+  display: grid;
+  gap: 0.45rem;
+}
+
+.debug-group label {
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.debug-time-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.35rem;
+}
+
+.debug-time-grid input {
+  width: 100%;
+  border: 1px solid color-mix(in oklab, var(--ink) 65%, #000 35%);
+  background: color-mix(in oklab, var(--panel) 82%, #000 18%);
+  color: var(--ink);
+  padding: 0.3rem;
+  font-family: "Spectral", serif;
+}
+
+.debug-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.debug-row button {
+  border: 1px solid color-mix(in oklab, var(--ink) 70%, #000 30%);
+  background: linear-gradient(180deg, color-mix(in oklab, var(--stone-soft) 45%, #000 55%), color-mix(in oklab, var(--stone) 70%, #000 30%));
+  color: var(--ink);
+  font-family: "Cinzel", serif;
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  padding: 0.3rem 0.45rem;
+  cursor: pointer;
+}
+
+.debug-status {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--muted);
 }
 
 .settings-panel a {
@@ -431,6 +520,14 @@ body.graphics-simple #fallbackParticles {
   .controls { grid-template-columns: 1fr 1.25fr 1fr; }
   .btn-main { min-height: 76px; }
   .btn-secondary { min-height: 52px; }
+  .settings-panel {
+    right: 0.5rem;
+    top: 3.7rem;
+  }
+  .debug-panel {
+    right: 0.5rem;
+    top: 15.2rem;
+  }
 }
 
 @media (min-width: 900px) {

@@ -29,7 +29,45 @@
         <label for="wakeToggle"><input id="wakeToggle" type="checkbox" checked /> Keep awake</label>
         <label for="modeToggle"><input id="modeToggle" type="checkbox" checked /> Dark mode</label>
         <label for="graphicsToggle"><input id="graphicsToggle" type="checkbox" checked /> Advanced graphics</label>
+        <button id="debugToggleButton" class="debug-toggle" type="button">Debug Tools</button>
         <a href="https://github.com/A13Xg/5-Min-Dungeon-Timer" target="_blank" rel="noopener noreferrer">GitHub Repo</a>
+      </aside>
+
+      <aside id="debugPanel" class="debug-panel" aria-label="Debug tools">
+        <h3>Debug Tools</h3>
+
+        <div class="debug-group">
+          <label for="debugMinutes">Time (M:S:T)</label>
+          <div class="debug-time-grid">
+            <input id="debugMinutes" type="number" min="0" max="5" value="5" />
+            <input id="debugSeconds" type="number" min="0" max="59" value="0" />
+            <input id="debugTenths" type="number" min="0" max="9" value="0" />
+          </div>
+          <div class="debug-row">
+            <button id="debugSetTimeButton" type="button">Apply Time</button>
+            <button id="debugMinus30Button" type="button">-30s</button>
+            <button id="debugPlus30Button" type="button">+30s</button>
+          </div>
+        </div>
+
+        <div class="debug-group">
+          <label>Audio Tests</label>
+          <div class="debug-row">
+            <button id="debugBeepButton" type="button">Beep x1</button>
+            <button id="debugMinute4Button" type="button">4 Beeps</button>
+            <button id="debugMinute3Button" type="button">3 Beeps</button>
+            <button id="debugMinute2Button" type="button">2 Beeps</button>
+            <button id="debugMinute1Button" type="button">1 Beep</button>
+          </div>
+        </div>
+
+        <div class="debug-group">
+          <label>Beep Validation</label>
+          <div class="debug-row">
+            <button id="debugValidateBeepsButton" type="button">Validate Minute Beeps</button>
+          </div>
+          <p id="debugBeepValidation" class="debug-status" aria-live="polite">Not validated yet.</p>
+        </div>
       </aside>
     </header>
 
