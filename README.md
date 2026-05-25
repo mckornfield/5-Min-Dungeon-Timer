@@ -2,6 +2,8 @@
 
 A fully static, mobile-first companion timer for **5-Minute Dungeon**, themed with a brutalist fantasy UI.
 
+https://a13xg.github.io/5-Min-Dungeon-Timer/
+
 ## Features
 - 5 rounds, each with a 5:00:0 countdown
 - Stage progression tracker with 5 dots and animated transitions
