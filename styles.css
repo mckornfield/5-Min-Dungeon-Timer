@@ -16,6 +16,12 @@
   --glow: #f4ba6a;
   --shadow: 0 10px 0 #090b0d;
   --btn-small-offset: -8px;
+  /* Game class gem colors */
+  --ruby: #e03535;
+  --sapphire: #3570d8;
+  --emerald: #28a865;
+  --gold: #d4a820;
+  --amethyst: #8840d8;
 }
 
 body.theme-light {
@@ -51,7 +57,9 @@ body {
   margin: 0;
   font-family: "Spectral", "Georgia", serif;
   background:
-    radial-gradient(circle at 12% -8%, color-mix(in oklab, var(--glow) 22%, transparent), transparent 35%),
+    radial-gradient(ellipse 55% 38% at 0% 4%, color-mix(in oklab, var(--amethyst) 13%, transparent), transparent),
+    radial-gradient(ellipse 45% 32% at 100% 6%, color-mix(in oklab, var(--sapphire) 11%, transparent), transparent),
+    radial-gradient(circle at 12% -8%, color-mix(in oklab, var(--glow) 18%, transparent), transparent 35%),
     radial-gradient(circle at 88% 108%, color-mix(in oklab, var(--ember) 18%, transparent), transparent 35%),
     linear-gradient(180deg, color-mix(in oklab, var(--stone-soft) 34%, #000 66%) 0%, var(--bg) 45%, #0b0d11 100%);
   color: var(--ink);
@@ -144,6 +152,14 @@ body::before {
 }
 
 .app-header {
+  z-index: 100;
+}
+
+.app-main {
+  z-index: 10;
+}
+
+.app-header {
   text-align: center;
   padding-top: 1.2rem;
   padding-bottom: 0.35rem;
@@ -158,6 +174,7 @@ body::before {
 
 .app-main > section {
   margin: 0;
+  border: 10px solid transparent;
 }
 
 .app-header h1 {
@@ -350,17 +367,31 @@ body::before {
 
 .progress-wrap {
   position: relative;
-  padding: 1rem 1rem 0.9rem;
-  border: 2px solid color-mix(in oklab, var(--ink) 72%, #000 28%);
-  background: linear-gradient(180deg, color-mix(in oklab, var(--panel) 86%, #000 14%), color-mix(in oklab, var(--stone) 76%, #000 24%));
-  box-shadow: var(--shadow);
+  padding: 1rem 0.5rem 0.9rem;
+  --stage-color: var(--ink);
+  transition: box-shadow 450ms ease;
+}
+
+.progress-wrap:has(.dot[data-stage="1"].active) { --stage-color: var(--ruby); }
+.progress-wrap:has(.dot[data-stage="2"].active) { --stage-color: var(--sapphire); }
+.progress-wrap:has(.dot[data-stage="3"].active) { --stage-color: var(--emerald); }
+.progress-wrap:has(.dot[data-stage="4"].active) { --stage-color: var(--gold); }
+.progress-wrap:has(.dot[data-stage="5"].active) { --stage-color: var(--amethyst); }
+
+.progress-wrap:has(.dot.active) {
+  box-shadow: 0 0 22px color-mix(in oklab, var(--stage-color) 32%, transparent);
 }
 
 .progress-track {
   height: 8px;
-  border: 2px solid color-mix(in oklab, var(--ink) 76%, #000 24%);
-  background: linear-gradient(90deg, #272d38, #1a1f29);
-  box-shadow: var(--shadow);
+  background: linear-gradient(90deg,
+    color-mix(in oklab, var(--ruby) 22%, #1a1f29),
+    color-mix(in oklab, var(--sapphire) 18%, #1a1f29),
+    color-mix(in oklab, var(--emerald) 18%, #1a1f29),
+    color-mix(in oklab, var(--gold) 22%, #1a1f29),
+    color-mix(in oklab, var(--amethyst) 22%, #1a1f29)
+  );
+  border-radius: 2px;
 }
 
 .progress-dots {
@@ -373,23 +404,28 @@ body::before {
 }
 
 .dot {
-  width: clamp(14px, 4.2vw, 18px);
-  height: clamp(14px, 4.2vw, 18px);
+  width: clamp(16px, 4.8vw, 22px);
+  height: clamp(16px, 4.8vw, 22px);
   border-radius: 50%;
-  border: 2px solid color-mix(in oklab, var(--ink) 80%, #000 20%);
+  border: 2px solid color-mix(in oklab, var(--ink) 50%, #000 50%);
   background: linear-gradient(180deg, color-mix(in oklab, var(--panel) 88%, #000 12%), color-mix(in oklab, var(--stone) 76%, #000 24%));
-  transition: transform 220ms ease, background 220ms ease;
+  transition: transform 300ms ease, background 300ms ease, box-shadow 300ms ease, border-color 300ms ease;
 }
 
-.dot.active,
-.dot.done {
-  background: radial-gradient(circle at 30% 30%, #ffd28a, var(--accent));
-  transform: scale(1.1);
-}
+.dot.active { transform: scale(1.3); }
+.dot.done   { transform: scale(1.05); opacity: 0.7; }
 
-.dot.done {
-  background: radial-gradient(circle at 30% 30%, #b9d2df, #567f9e);
-}
+/* Stage gem colors */
+.dot[data-stage="1"].active { background: radial-gradient(circle at 35% 28%, #ff8888, var(--ruby)); border-color: var(--ruby); box-shadow: 0 0 16px color-mix(in oklab, var(--ruby) 75%, transparent); }
+.dot[data-stage="1"].done   { background: radial-gradient(circle at 35% 28%, #b05050, color-mix(in oklab, var(--ruby) 55%, #000 45%)); border-color: color-mix(in oklab, var(--ruby) 45%, #000 55%); }
+.dot[data-stage="2"].active { background: radial-gradient(circle at 35% 28%, #88b4ff, var(--sapphire)); border-color: var(--sapphire); box-shadow: 0 0 16px color-mix(in oklab, var(--sapphire) 75%, transparent); }
+.dot[data-stage="2"].done   { background: radial-gradient(circle at 35% 28%, #5075b8, color-mix(in oklab, var(--sapphire) 55%, #000 45%)); border-color: color-mix(in oklab, var(--sapphire) 45%, #000 55%); }
+.dot[data-stage="3"].active { background: radial-gradient(circle at 35% 28%, #70e898, var(--emerald)); border-color: var(--emerald); box-shadow: 0 0 16px color-mix(in oklab, var(--emerald) 75%, transparent); }
+.dot[data-stage="3"].done   { background: radial-gradient(circle at 35% 28%, #388858, color-mix(in oklab, var(--emerald) 55%, #000 45%)); border-color: color-mix(in oklab, var(--emerald) 45%, #000 55%); }
+.dot[data-stage="4"].active { background: radial-gradient(circle at 35% 28%, #ffe068, var(--gold)); border-color: var(--gold); box-shadow: 0 0 16px color-mix(in oklab, var(--gold) 75%, transparent); }
+.dot[data-stage="4"].done   { background: radial-gradient(circle at 35% 28%, #a07818, color-mix(in oklab, var(--gold) 55%, #000 45%)); border-color: color-mix(in oklab, var(--gold) 45%, #000 55%); }
+.dot[data-stage="5"].active { background: radial-gradient(circle at 35% 28%, #c888ff, var(--amethyst)); border-color: var(--amethyst); box-shadow: 0 0 16px color-mix(in oklab, var(--amethyst) 75%, transparent); }
+.dot[data-stage="5"].done   { background: radial-gradient(circle at 35% 28%, #6840a8, color-mix(in oklab, var(--amethyst) 55%, #000 45%)); border-color: color-mix(in oklab, var(--amethyst) 45%, #000 55%); }
 
 .timer {
   text-align: center;
@@ -414,12 +450,8 @@ body::before {
 .controls {
   display: grid;
   grid-template-columns: 1fr 1.6fr 1fr;
-  align-items: center;
+  align-items: stretch;
   gap: 0.65rem;
-  padding: 0.8rem;
-  border: 2px solid color-mix(in oklab, var(--ink) 72%, #000 28%);
-  background: linear-gradient(180deg, color-mix(in oklab, var(--panel) 88%, #000 12%), color-mix(in oklab, var(--stone) 78%, #000 22%));
-  box-shadow: var(--shadow);
 }
 
 .left-controls {
@@ -444,6 +476,12 @@ body::before {
 
 .btn:active { transform: translateY(2px); }
 .btn-small:active { transform: translateX(var(--btn-small-offset)) translateY(2px); }
+
+.btn:hover { filter: brightness(1.1); transition: filter 120ms ease, border-color 180ms ease, box-shadow 180ms ease; }
+#resetButton:hover   { border-color: var(--ruby);     box-shadow: 0 0 14px color-mix(in oklab, var(--ruby)     45%, transparent), var(--shadow); }
+#backButton:hover    { border-color: var(--sapphire); box-shadow: 0 0 14px color-mix(in oklab, var(--sapphire) 45%, transparent), var(--shadow); }
+#nextButton:hover    { border-color: var(--emerald);  box-shadow: 0 0 14px color-mix(in oklab, var(--emerald)  45%, transparent), var(--shadow); }
+#playPauseButton:hover { box-shadow: 0 0 30px color-mix(in oklab, var(--ember) 70%, transparent), var(--shadow); filter: brightness(1.08); }
 
 .btn-main {
   min-height: 88px;
@@ -475,7 +513,8 @@ body::before {
 
 .badge {
   border: 2px solid color-mix(in oklab, var(--ink) 78%, #000 22%);
-  background: linear-gradient(180deg, color-mix(in oklab, var(--panel) 86%, #000 14%), color-mix(in oklab, var(--stone) 74%, #000 26%));
+  border-left: 3px solid var(--accent);
+  background: linear-gradient(100deg, color-mix(in oklab, var(--panel) 86%, #000 14%), color-mix(in oklab, var(--stone) 74%, #000 26%));
   box-shadow: var(--shadow);
   padding: 0.5rem 0.7rem;
   font-size: 0.9rem;
@@ -483,37 +522,47 @@ body::before {
   font-weight: 600;
 }
 
+#stageBadge  { border-left-color: var(--ruby); }
+#cardBadge   { border-left-color: var(--amethyst); }
+
 .quick-rules {
-  border: 2px solid color-mix(in oklab, var(--ink) 76%, #000 24%);
-  background:
-    linear-gradient(180deg, color-mix(in oklab, #f3dfb9 10%, var(--panel) 90%), color-mix(in oklab, var(--stone) 78%, #000 22%));
-  box-shadow: var(--shadow);
-  padding: 0.85rem;
+  padding: 0.2rem 0;
 }
 
-.quick-rules h2 {
-  margin: 0 0 0.4rem;
+.quick-rules summary {
+  list-style: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
   font-size: 1rem;
   font-family: "Cinzel", serif;
   letter-spacing: 0.06em;
   color: color-mix(in oklab, var(--glow) 58%, var(--ink) 42%);
+  user-select: none;
+  padding: 0.3rem 0;
+  width: fit-content;
+}
+
+.quick-rules summary::-webkit-details-marker { display: none; }
+
+.quick-rules summary::before {
+  content: '▸';
+  display: inline-block;
+  font-size: 0.75em;
+  transition: transform 220ms ease;
+  color: var(--muted);
+}
+
+.quick-rules[open] summary::before {
+  transform: rotate(90deg);
 }
 
 .quick-rules ul {
-  margin: 0;
+  margin: 0.4rem 0 0;
   padding-left: 1.1rem;
   color: var(--muted);
   font-size: 0.95rem;
-}
-
-body.theme-dark .quick-rules {
-  background:
-    linear-gradient(180deg, color-mix(in oklab, #2f2a1f 18%, var(--panel) 82%), color-mix(in oklab, var(--stone) 80%, #000 20%));
-}
-
-body.theme-light .quick-rules {
-  background:
-    linear-gradient(180deg, #f8efd9, #eadfca);
 }
 
 body.theme-dark .badge,
