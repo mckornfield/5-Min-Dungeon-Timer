@@ -27,6 +27,15 @@ const DEFAULT_BEEP_DURATION = 0.085;
 const DEFAULT_BEEP_SPACING = 0.12;
 const BEEP_RELEASE_TAIL = 0.02;
 const PROCEDURAL_AMBIENT_BASE_GAIN = 0.014;
+const BOSS_IMAGES = [
+  null,
+  'assets/images/characters/B1_BabyBarbarian1.png',
+  'assets/images/characters/B2_GrimeReaper1.png',
+  'assets/images/characters/B3_ZolaTheGorgon1.png',
+  'assets/images/characters/B4_FreakinDragon1.png',
+  'assets/images/characters/B5_DungeonMaster.png',
+];
+
 const PARTICLE_ENGINE_URLS = [
   'https://cdn.jsdelivr.net/npm/@tsparticles/engine@3/+esm',
   'https://unpkg.com/@tsparticles/engine@3/+esm',
@@ -41,6 +50,7 @@ const playPauseButton = document.getElementById('playPauseButton');
 const resetButton = document.getElementById('resetButton');
 const nextButton = document.getElementById('nextButton');
 const backButton = document.getElementById('backButton');
+const bossCharacter = document.getElementById('bossCharacter');
 const stageBadge = document.getElementById('stageBadge');
 const cardBadge = document.getElementById('cardBadge');
 const progressDots = document.getElementById('progressDots');
@@ -365,6 +375,7 @@ function resetStage(playFeedback = false) {
 function applyStageClass() {
   for (let i = 1; i <= TOTAL_STAGES; i++) document.body.classList.remove(`stage-${i}`);
   document.body.classList.add(`stage-${stage}`);
+  if (bossCharacter) bossCharacter.src = BOSS_IMAGES[stage] ?? '';
 }
 
 function jumpStage(direction) {
