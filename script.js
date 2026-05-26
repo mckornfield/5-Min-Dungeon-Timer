@@ -375,7 +375,12 @@ function resetStage(playFeedback = false) {
 function applyStageClass() {
   for (let i = 1; i <= TOTAL_STAGES; i++) document.body.classList.remove(`stage-${i}`);
   document.body.classList.add(`stage-${stage}`);
-  if (bossCharacter) bossCharacter.src = BOSS_IMAGES[stage] ?? '';
+  if (bossCharacter) {
+    bossCharacter.src = BOSS_IMAGES[stage] ?? '';
+    bossCharacter.classList.remove('boss-animating');
+    void bossCharacter.offsetWidth;
+    bossCharacter.classList.add('boss-animating');
+  }
 }
 
 function jumpStage(direction) {

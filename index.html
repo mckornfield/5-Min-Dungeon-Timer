@@ -17,8 +17,10 @@
     </div>
 
     <header class="app-header">
-      <h1>5-Minute Dungeon</h1>
-      <img src="./assets/images/pixelDragon.png" alt="Dragon crest" class="dragon" />
+      <div class="header-brand">
+        <img src="./assets/images/pixelDragon.png" alt="Dragon crest" class="dragon" />
+        <h1>5-Minute Dungeon</h1>
+      </div>
 
       <button id="menuButton" class="menu-button" type="button" aria-expanded="false" aria-controls="settingsPanel" aria-label="Open settings">
         <span></span><span></span><span></span>
@@ -107,6 +109,10 @@
         <div id="cardBadge" class="badge">Dungeon Door Cards: 20</div>
       </section>
 
+      <div class="boss-display" aria-hidden="true">
+        <img id="bossCharacter" class="boss-character" alt="" />
+      </div>
+
       <p id="timerText" class="timer" aria-live="polite">5:00:0</p>
 
       <section class="controls" aria-label="Timer controls">
@@ -119,10 +125,6 @@
 
         <button id="nextButton" class="btn btn-secondary" type="button">Next</button>
       </section>
-
-      <div class="boss-display" aria-hidden="true">
-        <img id="bossCharacter" class="boss-character" alt="" />
-      </div>
 
       <details class="quick-rules">
         <summary>Quick Play</summary>
